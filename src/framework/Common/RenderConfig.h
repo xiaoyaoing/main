@@ -30,6 +30,13 @@ struct PathTracingConfig {
     bool sample_light = true;
 };
 
+struct SurfelConfig {
+    uint32_t max_surfels = 1024 * 1024;  // 最大surfel数量
+    uint32_t rays_per_surfel = 8;        // 每个surfel的光线数
+    float cell_size = 1.0f;              // 加速结构的cell大小
+    // ... 其他配置参数 
+};
+
 enum EIntegraotrType {
     ePathTracing,
     eDDGI,

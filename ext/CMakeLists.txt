@@ -184,7 +184,6 @@ target_sources(tiny_obj_loader PRIVATE ${TINY_OBJ_LOADER_FILES})
 copy_dll(dxc dxcompiler SHARED ${Y_VK_THIRD_PARTY_DIR}/DirectXShaderCompiler )
 
 
-
 add_subdirectory(volk)
 add_subdirectory(json)
 
