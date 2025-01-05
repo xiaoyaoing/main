@@ -13,7 +13,7 @@ target_link_libraries(${target_name} PUBLIC
         glfw
         stb_image
         tinyexr
-       
+
 
         glm
         imgui
@@ -32,6 +32,7 @@ target_link_libraries(${target_name} PUBLIC
         spirv-cross-glsl
         spirv-cross-reflect
         dxc
+        magic_enum
 
         Vulkan::Vulkan)
 

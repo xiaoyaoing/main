@@ -125,12 +125,5 @@ void main()
     payload.prim_idx = gl_InstanceCustomIndexEXT;
     payload.hit_kind = gl_HitKindEXT;
     payload.dist = gl_RayTminEXT + gl_HitTEXT;
-    // if (pinfo.area!=0)
-    //debugPrintfEXT("prim_idx area light: %d %f\n", gl_InstanceCustomIndexEXT, pinfo.area);
-    //
-    //    if (gl_InstanceCustomIndexEXT!= 0)
-    //    debugPrintfEXT("material idx: %d %d\n", material_index, gl_InstanceCustomIndexEXT);
-    //
-    //    debugPrintfEXT("prim idx: %d\n", gl_InstanceCustomIndexEXT);
-    //  debugPrintfEXT("hit pos: %f %f %f\n", world_pos.x, world_pos.y, world_pos.z);
+   
 }

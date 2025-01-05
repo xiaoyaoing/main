@@ -367,6 +367,7 @@ void GLTFLoadingImpl::loadCameras(const tinygltf::Model& model) {
         auto camera = std::make_shared<Camera>();
         camera->setPerspective(45.0f, 16.0f / 9.0f, 0.1f, 4000.0f);
         camera->getTransform()->setPosition({0.0f, 0.0f, 5.0f});
+        camera->setScreenSize(1920,1080);
         cameras.push_back(camera);
     }
 }
@@ -415,7 +416,7 @@ void GLTFLoadingImpl::loadLights(const tinygltf::Model& model) {
         SgLight sgLight;
         sgLight.lightProperties.color = glm::vec3(1.0f, 1.0f, 1.0f);
         sgLight.lightProperties.intensity = 1.0f;
-        sgLight.lightProperties.position = sceneBBox.center()+vec3(0,sceneBBox.extent().y/5.f * 3,0); 
+        sgLight.lightProperties.position = sceneBBox.center()+vec3(0,sceneBBox.extent().y/5.f * 3,0);
         sgLight.lightProperties.direction = glm::normalize(glm::vec3(-1, -1, -1));
         sgLight.type = LIGHT_TYPE::Directional;
         this->lights.push_back(sgLight);
@@ -876,7 +877,7 @@ void GLTFLoadingImpl::loadMaterials(tinygltf::Model& gltfModel) {
 
         if (mat.extensions.find("KHR_materials_pbrSpecularGlossiness") == mat.extensions.end()) {
             auto& pbr                            = mat.pbrMetallicRoughness;
-            material.pbrBaseColorFactor          = glm::vec4(pbr.baseColorFactor[0], pbr.baseColorFactor[1], pbr.baseColorFactor[2], pbr.baseColorFactor[3]);   
+            material.pbrBaseColorFactor          = glm::vec4(pbr.baseColorFactor[0], pbr.baseColorFactor[1], pbr.baseColorFactor[2], pbr.baseColorFactor[3]);
             material.pbrBaseColorTexture         = requestTexture(pbr.baseColorTexture.index, gltfModel);
             material.pbrMetallicFactor           = static_cast<float>(pbr.metallicFactor);
             material.pbrMetallicRoughnessTexture = requestTexture(pbr.metallicRoughnessTexture.index, gltfModel);
@@ -1034,7 +1035,7 @@ std::unique_ptr<Scene> GltfLoading::LoadSceneFromGLTFFile(Device& device, const 
     scene->indexType          = model->indexType;
     scene->primitiveIdBuffer  = std::move(model->scenePrimitiveIdBuffer);
     scene->bufferRate         = config.bufferRate;
-    
+
     scene->setSceneBBox(model->sceneBBox);
 
     scene->getLoadCompleteInfo().SetGeometryLoaded();

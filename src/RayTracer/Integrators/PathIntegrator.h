@@ -3,7 +3,7 @@
 #include "Integrator.h"
 #include "Common/RenderConfig.h"
 #include "Raytracing/PT/path_commons.h"
-#include "RenderPasses/GBufferPass.h"
+#include "RenderPasses/RasterizationPass.h"
 
 class PathIntegrator : public Integrator {
 public:

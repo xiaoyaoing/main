@@ -124,6 +124,8 @@ struct RTPrimitive {
     uint64_t area_distribution_buffer_addr;
     uint     padding3;
     uint     padding4;
+
+    mat4 inverse_world_matrix;
     //  uint64_t padding_64;
 };
 

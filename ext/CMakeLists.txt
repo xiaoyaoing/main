@@ -1,7 +1,7 @@
 
 find_package(Vulkan REQUIRED)
 
-set(real_out_put_dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}") 
+set(real_out_put_dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 # copy dll and lib from src_root to out_put_dir
 function(copy_dll target_name dll_name type src_root )
     if(NOT TARGET copy_dll_${target_name})
@@ -22,14 +22,14 @@ function(copy_dll target_name dll_name type src_root )
             ${real_out_put_dir}
         )
 
-        set_target_properties(${target_name} PROPERTIES 
+        set_target_properties(${target_name} PROPERTIES
         IMPORTED_IMPLIB  ${lib}
         IMPORTED_LOCATION  ${dll})
 
         add_dependencies(${target_name} copy_dll_${target_name})
     elseif(WIN32 AND ${type} STREQUAL "STATIC")
         set(lib "${src_root}/lib/Windows/${dll_name}.lib" )
-        set_target_properties(${target_name} PROPERTIES 
+        set_target_properties(${target_name} PROPERTIES
         IMPORTED_IMPLIB  ${lib}
         IMPORTED_LOCATION  ${lib})
     elseif(LINUX)
@@ -50,6 +50,7 @@ target_include_directories(stb_image INTERFACE ${STB_DIR})
 
 add_subdirectory(glfw)
 add_subdirectory(spdlog)
+add_subdirectory(magick_enum)
 
 add_subdirectory(glm)
 set(GLM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/glm)

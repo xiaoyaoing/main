@@ -1,4 +1,6 @@
 #include "Buffer.h"
+
+#include "RenderContext.h"
 #include "Core/Device/Device.h"
 
 void Buffer::unmap() {
@@ -21,13 +23,28 @@ void Buffer::uploadData(const void* srcData, uint64_t size, uint64_t offset) {
     if (size == -1)
         size = _allocatedSize;
     assert(srcData != nullptr);// snowapril : source data must not be invalid
-    auto dstData = map();
-    memcpy(static_cast<char*>(dstData) + offset, srcData, static_cast<size_t>(size));
-    vmaUnmapMemory(_allocator, _bufferAllocation);
+
+    if (_memoryUsage == VMA_MEMORY_USAGE_CPU_ONLY || _memoryUsage == VMA_MEMORY_USAGE_CPU_TO_GPU || _memoryUsage == VMA_MEMORY_USAGE_GPU_TO_CPU) {
+		void* dstData{nullptr};
+		vmaMapMemory(_allocator, _bufferAllocation, &dstData);
+		memcpy(static_cast<char*>(dstData) + offset, srcData, static_cast<size_t>(size));
+		vmaUnmapMemory(_allocator, _bufferAllocation);
+		return;
+	}
+
+    else {
+        auto tempBuffer = Buffer(device, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, srcData);
+		VkBufferCopy copyRegion{};
+        copyRegion.size = size;
+        CommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        vkCmdCopyBuffer(commandBuffer.getHandle(), tempBuffer.getHandle(), _buffer, 1, &copyRegion);
+        g_context->submit(commandBuffer,true);
+    }
+
 }
 
 Buffer::Buffer(Device& device, uint64_t bufferSize, VkBufferUsageFlags bufferUsage, VmaMemoryUsage memoryUsage, const void* data)
-    : device(device) {
+    : device(device),_usageFlags(bufferUsage),_memoryUsage(memoryUsage) {
 
     if (bufferSize == 0)
         LOGE("Trying to create a buffer with size 0")
@@ -46,11 +63,10 @@ Buffer::Buffer(Device& device, uint64_t bufferSize, VkBufferUsageFlags bufferUsa
 
     VK_CHECK_RESULT(vmaCreateBuffer(_allocator, &bufferInfo, &bufferAllocInfo, &_buffer, &_bufferAllocation, nullptr))
 
-    if (data) {
+    if (data ) {
         uploadData(data, bufferSize);
     }
-    _usageFlags  = bufferUsage;
-    _memoryUsage = memoryUsage;
+
     //LOGI("Buffer created: %d bytes, usage %d, memory usage %d", bufferSize, bufferUsage, memoryUsage);
 }
 

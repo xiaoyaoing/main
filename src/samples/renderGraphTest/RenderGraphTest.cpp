@@ -10,7 +10,7 @@
 #include "Core/View.h"
 #include "Core/math.h"
 #include "Core/Shader/GlslCompiler.h"
-#include "RenderPasses/GBufferPass.h"
+#include "RenderPasses/RasterizationPass.h"
 #include "RenderPasses/SSGIPass.h"
 #include "RenderPasses/ShadowMapPass.h"
 #include "Scene/SceneLoader/SceneLoaderInterface.h"
@@ -21,7 +21,9 @@ void RenderGraphTest::drawFrame(RenderGraph& rg) {
     for (auto& pass : passes) {
         pass->render(rg);
     }
-
+    if (enableSSR) {
+        ssrPass->render(rg);
+    }
     return;
 
     auto& commandBuffer = renderContext->getGraphicCommandBuffer();
@@ -52,24 +54,24 @@ void RenderGraphTest::drawFrame(RenderGraph& rg) {
                                                              .useage = TextureUsage::SUBPASS_INPUT |
                                                                        TextureUsage::COLOR_ATTACHMENT
                                                      });
-    
+
             auto normal = rg.createTexture("normal",
                                                      {
                                                              .extent = renderContext->getViewPortExtent(),
                                                              .useage = TextureUsage::SUBPASS_INPUT |
                                                                        TextureUsage::COLOR_ATTACHMENT
-    
+
                                                      });
-    
+
             auto depth = rg.createTexture(DEPTH_IMAGE_NAME, {
                            .extent = renderContext->getViewPortExtent(),
                            .useage = TextureUsage::SUBPASS_INPUT |
                                      TextureUsage::DEPTH_ATTACHMENT
-    
+
                    });
-                    
+
              auto output = rg.getBlackBoard().getHandle(RENDER_VIEW_PORT_IMAGE_NAME);
-    
+
             RenderGraphPassDescriptor desc;
             desc.setTextures({output, depth, albedo,normal}).addSubpass({.outputAttachments = {albedo, normal, depth}}).addSubpass({
                                             .inputAttachments = {
@@ -83,22 +85,22 @@ void RenderGraphTest::drawFrame(RenderGraph& rg) {
             blackBoard.put("normal", normal);
             blackBoard.put(DEPTH_IMAGE_NAME, depth);
             blackBoard.put(RENDER_VIEW_PORT_IMAGE_NAME, output); }, [&](RenderPassContext& context) {
-    
+
             view->bindViewBuffer().bindViewShading();
-    
+
             renderContext->bindScene(commandBuffer,*scene).getPipelineState().setPipelineLayout(*pipelineLayouts.gBuffer).setDepthStencilState({.depthCompareOp =  VK_COMPARE_OP_GREATER});
-    
-            uint32_t instance_count= 0;    
+
+            uint32_t instance_count= 0;
             for(const auto & primitive : view->getMVisiblePrimitives()) {
                 renderContext->flushAndDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, primitive->firstVertex,instance_count++);
-            }              
+            }
             renderContext->nextSubpass(commandBuffer);
             renderContext->getPipelineState().setPipelineLayout(*pipelineLayouts.lighting);
             renderContext->getPipelineState().setDepthStencilState({.depthTestEnable = false});
-    
-                
+
+
             renderContext->bindImage(0, blackBoard.getImageView("albedo")).bindImage(1, blackBoard.getImageView(DEPTH_IMAGE_NAME)).bindImage(2, blackBoard.getImageView("normal"));
-                
+
             renderContext->getPipelineState().setRasterizationState({
                                                                             .cullMode = VK_CULL_MODE_NONE
                                                                     });
@@ -112,11 +114,13 @@ void RenderGraphTest::prepare() {
     passes.emplace_back(std::make_unique<GBufferPass>());
     passes.emplace_back(std::make_unique<ShadowMapPass>());
     passes.emplace_back(std::make_unique<LightingPass>());
-    passes.emplace_back(std::make_unique<SSGIPass>());
+    ssrPass = std::make_unique<SSGIPass>();
 
     for (auto& pass : passes) {
         pass->init();
     }
+    ssrPass->init();
+
     sceneLoadingConfig.indexType = VK_INDEX_TYPE_UINT32;
     loadScene(config.getScenePath());
     RenderPtrManangr::Initalize();
@@ -130,9 +134,12 @@ RenderGraphTest::RenderGraphTest() : Application("Defered Rendering Sponza", Fil
 
 void RenderGraphTest::onUpdateGUI() {
     gui->checkBox("Use subpasses", &useSubpass);
+    gui->checkBox("Enable SSR", &enableSSR);
     for (auto& pass : passes) {
         pass->updateGui();
     }
+    ssrPass->updateGui();
+
 }
 
 int main() {

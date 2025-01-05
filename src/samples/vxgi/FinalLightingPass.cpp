@@ -31,10 +31,10 @@ void FinalLightingPass::render(RenderGraph& rg) {
         [&](RenderGraph::Builder& builder, GraphicPassSettings& settings) {
             auto& blackBoard = rg.getBlackBoard();
             auto  radiance   = blackBoard.getHandle("radiance");
-            auto  diffuse    = blackBoard.getHandle("diffuse");
+            auto  diffuse    = blackBoard.getHandle(ALBEDO_RG);
             auto  normal     = blackBoard.getHandle("normal");
             auto  depth      = blackBoard.getHandle(DEPTH_IMAGE_NAME);
-            auto  emission   = blackBoard.getHandle("emission");
+            auto  emission   = blackBoard.getHandle(EMISSION_RG);
 
             auto output = blackBoard.getHandle(RENDER_VIEW_PORT_IMAGE_NAME);
 
@@ -51,10 +51,10 @@ void FinalLightingPass::render(RenderGraph& rg) {
             auto& radianceMap = blackBoard.getHwImage("radiance");
 
             g_context->getPipelineState().setPipelineLayout(*mFinalLightingPipelineLayout).setDepthStencilState({.depthTestEnable = false}).setRasterizationState({.cullMode = VK_CULL_MODE_NONE});
-            g_context->bindImage(0, blackBoard.getImageView("diffuse"))
+            g_context->bindImage(0, blackBoard.getImageView(ALBEDO_RG))
                 //  .bindImage(1, blackBoard.getImageView("specular"))
                 .bindImage(1, blackBoard.getImageView("normal"))
-                .bindImage(2, blackBoard.getImageView("emission"))
+                .bindImage(2, blackBoard.getImageView(EMISSION_RG))
                 .bindImage(3, blackBoard.getImageView(DEPTH_IMAGE_NAME))
                 .bindImageSampler(0, radianceMap.getVkImageView(), *mRadianceMapSampler);
             pushFinalLightingParam();

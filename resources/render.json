@@ -14,7 +14,11 @@
       "normal_bias" : 0.6,
       "view_bias" : 0.1,
       "use_rt_gbuffer" : true
-    }
+    },
+	  {
+		  	  "type": "surfel"
+	}
+
   ],
 
   "lights": [
@@ -24,11 +28,11 @@
       "intensity": 1.5
     }
   ],
-  
+
   "integrator": {
-    "type": "ddgi"
+    "type": "surfel"
   },
-  "scene_path": "F:\\code\\RTXGI-DDGI\\samples\\test-harness\\data\\gltf\\cornell\\cornell_box.gltf",
+  "scene_path": "D:\\code\\WickedEngine\\Y-VK\\resources\\scenes\\Sponza\\glTF\\Sponza.gltf",
   "scene_scale": 1.0,
   "scene_translation": [
     0.0,

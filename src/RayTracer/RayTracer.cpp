@@ -9,12 +9,14 @@
 #include "ctpl_stl.h"
 #include "Common/Config.h"
 #include "Common/ResourceCache.h"
+#include "Common/RenderConfig.h"
 #include "Common/VkCommon.h"
 #include "Core/Shader/GlslCompiler.h"
 #include "Integrators/DDGIIntegrator.h"
 #include "Integrators/PathIntegrator.h"
 #include "Integrators/RestirIntegrator.h"
 #include "Integrators/SimpleIntegrator.h"
+#include "Integrators/SurfelIntegrator.h"
 #include "Scene/SceneLoader/SceneLoaderInterface.h"
 #include "Scene/SceneLoader/gltfloader.h"
 
@@ -53,7 +55,7 @@ void RayTracer::onSceneLoaded() {
     for(auto light : config.getLights()) {
         scene->addLight(light);
     }
-    
+
     camera = scene->getCameras()[0];
     Config::GetInstance().CameraFromConfig(*camera, scene->getName());
     sceneFirstLoad = false;
@@ -95,9 +97,10 @@ void RayTracer::prepare() {
     GlslCompiler::forceRecompile = true;
 
     pcPath = std::make_shared<PCPath>();
-    
+
     integrators[to_string(ePathTracing)] = std::make_unique<PathIntegrator>(*device, config.getPathTracingConfig());
     integrators[to_string(eDDGI)]        = std::make_unique<DDGIIntegrator>(*device, config.getDDGIConfig());
+    integrators[to_string(eSurfelGI)]    = std::make_unique<SurfelIntegrator>(*device, config.getSurfelConfig());
 
     for (auto& integrator : integrators) {
         integratorNames.push_back(integrator.first);
@@ -157,7 +160,7 @@ int main( int argc, char* argv[] ) {
        json = JsonUtil::fromFile(FileUtils::getResourcePath(argv[1]));
     }
     else json = JsonUtil::fromFile(FileUtils::getResourcePath("render.json"));
-    
+
     RayTracer rayTracer(json);
     rayTracer.prepare();
     rayTracer.mainloop();

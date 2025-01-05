@@ -11,7 +11,7 @@ struct DDGIConfig {
     float normal_bias = 0.1f;
     float view_bias = 0.1f;
     float backface_ratio = 0.1f;
-    vec3 probe_distance = vec3(1.0f);
+    vec3 probe_distance = vec3(0.5f);
     float min_frontface_dist = 0.1f;
     float max_distance;
     glm::ivec3 probe_counts;
@@ -31,18 +31,17 @@ struct PathTracingConfig {
 };
 
 struct SurfelConfig {
-    uint32_t max_surfels = 1024 * 1024;  // 最大surfel数量
-    uint32_t rays_per_surfel = 8;        // 每个surfel的光线数
-    float cell_size = 1.0f;              // 加速结构的cell大小
-    // ... 其他配置参数 
+    uint32_t max_surfels = 1024 * 1024;
 };
 
 enum EIntegraotrType {
     ePathTracing,
     eDDGI,
+    eSurfelGI,
     eRestirDI,
+    IntegratorTypeCount
 };
- 
+
 
 std::string to_string(EIntegraotrType type);
 
@@ -52,6 +51,7 @@ public:
     RenderConfig() = default;
     DDGIConfig getDDGIConfig() const;
     PathTracingConfig getPathTracingConfig() const;
+    SurfelConfig getSurfelConfig() const;
     EIntegraotrType getIntegratorType() const;
     void getSceneLoadingConfig(SceneLoadingConfig& config) const;
     std::string getScenePath() const;

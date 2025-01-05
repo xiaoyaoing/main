@@ -12,9 +12,14 @@ public:
     void init() override;
 
 private:
-    std::unique_ptr<PipelineLayout> mPipelineLayout{nullptr};
 
     // Device&                         device;
+};
+
+class VBufferPass : public PassBase {
+public:
+    void render(RenderGraph& rg) override;
+    void init() override;
 };
 
 

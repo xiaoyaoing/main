@@ -104,7 +104,7 @@ bool Gui::inputEvent(const InputEvent& input_event) {
     auto  capture_move_event = false;
 
     if (input_event.getSource() == EventSource::KeyBoard) {
-        
+
     } else if (input_event.getSource() == EventSource::Mouse) {
         const auto& mouse_button = static_cast<const MouseButtonInputEvent&>(input_event);
 
@@ -265,6 +265,7 @@ void Gui::addGuiPass(RenderGraph& graph) {
                     const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[j];
 
                     auto texture = static_cast<ImageView*>(pcmd->GetTexID());
+                    auto & renderOutput = context.renderGraph.getBlackBoard().getImageView(RENDER_VIEW_PORT_IMAGE_NAME);
                     renderContext.bindImageSampler(0, *texture, fontTexture->getSampler());
                     renderContext.flushAndDrawIndexed(
                         context.commandBuffer, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);

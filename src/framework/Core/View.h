@@ -39,7 +39,7 @@ public:
 
     void updateGui();
     void perFrameUpdate();
-    
+
     const Camera*                 getCamera() const;
 
     using PrimitiveCallBack = std::function<void(Primitive& primitive)>;
@@ -60,12 +60,17 @@ protected:
         glm::mat4 inv_proj;
         glm::mat4 inv_view;
 
+        float zfar;
+        float znear;
+        float padding1;
+        float padding2;
+
         glm::vec3 camera_pos;
         uint32_t  light_count;
 
         glm::ivec2 resolution;
         glm::ivec2 inv_resolution;
-        
+
         float roughnessScale = 1.f;
         float normalScale= 1.f;
         float roughnessOverride = -1.f;
@@ -80,7 +85,7 @@ protected:
 protected:
 
     void updateLight(bool updateAllLightBuffer = false);
-    
+
     const Camera*                 mCamera{nullptr};
     std::vector< Primitive*> mVisiblePrimitives;
     std::vector<const ImageView *> mImageViews;

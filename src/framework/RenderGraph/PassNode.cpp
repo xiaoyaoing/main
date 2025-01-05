@@ -5,7 +5,8 @@
 
 #include "Core/RenderContext.h"
 #include "RenderGraph/RenderGraph.h"
-#include "Core/Images/ImageUtil.h"
+#include "ext/magick_enum/include/magic_enum/magic_enum.hpp"
+#include <format>
 
 #include <set>
 #include <unordered_set>
@@ -143,6 +144,16 @@ PassNode::PassNode(const std::string& passName) {
     setName(passName);
 }
 
+std::string usageToString(uint16_t usage,RenderResourceType type) {
+    if (type == RenderResourceType::ETexture) {
+        return std::string(magic_enum::enum_name(static_cast<TextureUsage>(usage)));
+
+	} else {
+		return std::string(magic_enum::enum_name(static_cast<BufferUsage>(usage)));
+	}
+    return "UNDEFINED";
+}
+
 void PassNode::resolveResourceUsages(RenderGraph& renderGraph, CommandBuffer& commandBuffer) {
     ResourceBarrierInfo barrierInfo;
     for (auto& resourceIt : mResourceUsage) {
@@ -163,6 +174,10 @@ void PassNode::resolveResourceUsages(RenderGraph& renderGraph, CommandBuffer& co
         }
         stateTracker.setResourceState(resourceIt.first, this, resourceIt.second);
         resource->resloveUsage(barrierInfo, srcUsage, resourceIt.second, srcState, getType());
+
+        if (renderGraph.getDebugBarrierInfo()) {
+            LOGI("Resource {} from {} to {} before pass{}", resource->getName(), usageToString(srcUsage,resource->getType()), usageToString(resourceIt.second,resource->getType()), getName());
+        }
     }
     VkDependencyInfo dependencyInfo{};
     dependencyInfo.sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -172,8 +187,8 @@ void PassNode::resolveResourceUsages(RenderGraph& renderGraph, CommandBuffer& co
     dependencyInfo.pBufferMemoryBarriers    = barrierInfo.bufferBarriers.data();
     dependencyInfo.pImageMemoryBarriers     = barrierInfo.imageBarriers.data();
     dependencyInfo.pMemoryBarriers          = barrierInfo.memoryBarriers.data();
-    
-        vkCmdPipelineBarrier2(commandBuffer.getHandle(), &dependencyInfo);
+
+    vkCmdPipelineBarrier2(commandBuffer.getHandle(), &dependencyInfo);
 }
 
 void PassNode::addResourceUsage(RenderGraphHandle handle, uint16_t usage) {

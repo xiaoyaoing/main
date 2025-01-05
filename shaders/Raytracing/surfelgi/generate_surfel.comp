@@ -1,0 +1,182 @@
+#version 460
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_shader_atomic_float : require
+#include "VisibilityBuffer.glsl"
+#include "../../perFrame.glsl"
+#include "surfel.h"
+#include "surfel_common.glsl"
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+// 输入资源
+layout(binding = 0,set = 1) uniform sampler2D visibility_texture;
+
+//layout(binding = 0,set =0) uniform _SurfelUBOBuffer {
+//    SurfelUBO surfel_ubo;
+//};
+
+float random() {
+	return 0;
+}
+
+float saturate( float x) {
+	return clamp(x, 0.0, 1.0);
+}
+
+// Surfel统计和管理
+layout(set = 0, binding = 1) buffer _SurfelStats {
+    SurfelStats surfelStats;
+};
+
+// Surfel数据结构
+layout(set = 0, binding = 2) buffer _SurfelBuffer {
+    Surfel surfels[];
+};
+
+// 活跃的surfel索引
+layout(set = 0, binding = 3) buffer _SurfelAliveBuffer {
+    uint aliveIndices[];
+};
+
+// 已回收的surfel索引
+layout(set = 0, binding = 4) buffer _SurfelDeadBuffer {
+    uint deadIndices[];
+};
+
+// Surfel cell buffer
+layout(set = 0, binding = 5) buffer _SurfelCellBuffer {
+    uint surfelCellBuffer[];
+};
+
+// Surfel grid
+layout(set = 0, binding = 6) buffer _SurfelGrid {
+    SurfelGridCell surfel_grid[];
+};
+
+
+shared uint GroupMinSurfelCount;
+
+float compute_linear_depth(vec3 world_pos) {
+	vec3 position_in_view = (per_frame.view * vec4(world_pos, 1.0)).xyz;
+	return (position_in_view.z - per_frame.z_near) / (per_frame.z_far - per_frame.z_near);
+}
+
+void main() {
+
+    // 初始化group共享变量
+    if(gl_LocalInvocationIndex == 0) {
+        GroupMinSurfelCount = ~0u;
+    }
+    barrier();
+
+    ivec2 pixel = ivec2(gl_WorkGroupID.xy * 16 + gl_LocalInvocationID.xy);
+
+    // 获取可见性信息
+    vec4 visibility = texelFetch(visibility_texture, pixel, 0);
+	if(visibility.x == -1) {
+		return;
+	}
+    Surface surface = SurfaceFromVBuffer(visibility);
+
+    // 计算世界空间位置和法线
+	vec2 screen_uv = (pixel + vec2(0.5)) * per_frame.inv_resolution;
+    vec3 world_pos = surface.position;
+    vec3 normal = surface.normal;
+
+	ivec3 cell_index = surfel_cell(world_pos);
+    // 计算cell索引和coverage
+    uint cell_linear_index = surfel_cellindex(cell_index);
+    SurfelGridCell cell = surfel_grid[cell_linear_index];
+
+	return;
+    float coverage = 0.0;
+
+    // 计算当前像素的surfel覆盖
+    for(uint i = 0; i < cell.count; i++) {
+        uint surfel_index = surfelCellBuffer[cell.offset + i];
+        Surfel surfel = surfels[surfel_index];
+
+        vec3 L = world_pos - surfel.position;
+        float dist2 = dot(L, L);
+        if(dist2 < surfel.radius * surfel.radius) {
+            float dotN = dot(normal, surfel.normal);
+            if(dotN > 0.0) {
+                float dist = sqrt(dist2);
+                float contribution = 1.0;
+
+                // 基于距离和法线计算贡献
+                contribution *= saturate(dotN);
+                contribution *= saturate(1.0 - dist/surfel.radius);
+                contribution = smoothstep(0.0, 1.0, contribution);
+
+                // 累积coverage
+                coverage += contribution;
+            }
+        }
+    }
+
+	return;
+    // 只在cell未满时尝试生成新的surfel
+    //if(cell.count < surfel_ubo.max_surfel_per_cell)
+	{
+        // 打包像素信息用于选择最小coverage的位置
+        uint surfel_count_at_pixel = 0;
+        surfel_count_at_pixel |= (uint(coverage * 255.0) & 0xFFu) << 24;  // coverage在高8位
+        surfel_count_at_pixel |= (uint(random() * 65535.0) & 0xFFFFu) << 8; // 随机值在中间
+        surfel_count_at_pixel |= (gl_LocalInvocationID.x & 0xFu) << 4;
+        surfel_count_at_pixel |= (gl_LocalInvocationID.y & 0xFu);
+
+        atomicMin(GroupMinSurfelCount, surfel_count_at_pixel);
+    }
+
+    barrier();
+
+    // 在coverage最小的位置生成新的surfel
+   // if(cell.count < surfel_ubo.max_surfel_per_cell)
+	{
+        uint min_surfel_count = GroupMinSurfelCount;
+        uvec2 min_pixel = uvec2(
+            (min_surfel_count >> 4) & 0xFu,
+            min_surfel_count & 0xFu
+        );
+        uint min_coverage = (min_surfel_count >> 24) & 0xFFu;
+
+        if(gl_LocalInvocationID.xy == min_pixel && coverage < SURFEL_TARGET_COVERAGE) {
+
+			float linearDepth = compute_linear_depth(world_pos);
+            float chance = pow(1.0 - linearDepth, 8.0);
+
+            if(random() < chance) {
+                // 从死亡列表获取新的surfel
+                int deadCount = atomicAdd(surfelStats.surfelDeadcount, -1);
+                if(deadCount <= 0 || deadCount > SURFEL_CAPACITY) {
+                    return;
+                }
+                uint newSurfelIndex = deadIndices[deadCount - 1];
+
+                // 添加到活跃列表
+                uint aliveCount = atomicAdd(surfelStats.surfelCount, 1);
+                if(aliveCount < SURFEL_CAPACITY) {
+                    aliveIndices[aliveCount] = newSurfelIndex;
+
+                    // 初始化新的surfel
+                    Surfel surfel;
+                    surfel.position  = world_pos;
+                    surfel.normal = normal;
+                    surfel.primitive_id = surface.prim_id;
+                    surfel.radius = 0.1f;
+                    surfel.life = 0;
+                    surfel.max_inconsistency = 1.0;
+
+                    surfels[newSurfelIndex] = surfel;
+                }
+            }
+        }
+    }
+}
+
+

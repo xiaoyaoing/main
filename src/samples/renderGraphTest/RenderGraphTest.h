@@ -5,6 +5,7 @@
 
 #include "App/Application.h"
 #include "RenderPasses/RenderPassBase.h"
+#include "RenderPasses/SSGIPass.h"
 
 class RenderGraphTest : public Application {
 public:
@@ -23,5 +24,7 @@ protected:
     void                     onUpdateGUI() override;
     void                     drawFrame(RenderGraph& renderGraph) override;
     std::vector<std::unique_ptr<PassBase>> passes;
-    
+    std::unique_ptr<SSGIPass>              ssrPass;
+    bool enableSSR{false};
+
 };

@@ -1,0 +1,22 @@
+#version 450
+#extension GL_EXT_mesh_shader : require
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(points, max_vertices = 1) out;
+
+layout(set = 0, binding = 0) buffer SurfelBuffer {
+    Surfel surfels[];
+};
+
+layout(push_constant) uniform PushConstants {
+    float surfelSize;
+} pushConstants;
+
+void main() {
+    uint surfelIndex = gl_GlobalInvocationID.x;
+    Surfel surfel = surfels[surfelIndex];
+
+    gl_MeshVerticesEXT[0].gl_Position = vec4(surfel.geometry.local_position, 1.0);
+    gl_MeshVerticesEXT[0].gl_PointSize = pushConstants.surfelSize;
+    EmitMeshTasksEXT(1, 1, 1);
+}

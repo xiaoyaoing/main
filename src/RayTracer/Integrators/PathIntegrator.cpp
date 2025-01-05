@@ -5,7 +5,7 @@
 #include "Common/ResourceCache.h"
 #include "Scene/Compoments/Camera.h"
 #include "Raytracing/PT/path_commons.h"
-#include "RenderPasses/GBufferPass.h"
+#include "RenderPasses/RasterizationPass.h"
 
 #include <numeric>
 

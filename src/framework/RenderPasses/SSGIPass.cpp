@@ -22,8 +22,8 @@ void SSGIPass::render(RenderGraph& rg) {
             auto& blackBoard = rg.getBlackBoard();
             auto  depth      = blackBoard[DEPTH_IMAGE_NAME];
             auto  depth_hiz  = blackBoard["depth_hiz"];
-            auto  normal     = blackBoard["normal"];
-            auto  diffuse    = blackBoard["diffuse"];
+            auto  normal     = blackBoard[NORMAL_RG];
+            auto  diffuse    = blackBoard[ALBEDO_RG];
             auto  output     = blackBoard.getHandle(RENDER_VIEW_PORT_IMAGE_NAME);
             auto  ssgi       = rg.createTexture("ssgi",
                                                 {
@@ -54,14 +54,14 @@ void SSGIPass::render(RenderGraph& rg) {
                 .bindPushConstants(mPushConstant);
             bool useCombinedSampler = false;
             if (useCombinedSampler) {
-                g_context->bindImageSampler(0, blackBoard.getImageView("diffuse"), sampler)
-                     .bindImageSampler(1, blackBoard.getImageView("normal"), sampler)
+                g_context->bindImageSampler(0, blackBoard.getImageView(ALBEDO_RG), sampler)
+                     .bindImageSampler(1, blackBoard.getImageView(NORMAL_RG), sampler)
                     .bindImageSampler(3, blackBoard.getImageView(DEPTH_IMAGE_NAME), sampler)
                     .bindImageSampler(4, blackBoard.getImageView(RENDER_VIEW_PORT_IMAGE_NAME), sampler)
                     .bindImageSampler(5, TextureHelper::GetBlueNoise()->getVkImageView(), sampler)
                     .bindImageSampler(6, hizDepth, hizSampler);
             } else {
-                g_context->bindImage(0,blackBoard.getImageView("diffuse"),1).bindImage(1, blackBoard.getImageView("normal"),1)
+                g_context->bindImage(0,blackBoard.getImageView(ALBEDO_RG),1).bindImage(1, blackBoard.getImageView(NORMAL_RG),1)
                     .bindImage(3, blackBoard.getImageView(DEPTH_IMAGE_NAME),1)
                     .bindImage(4, blackBoard.getImageView(RENDER_VIEW_PORT_IMAGE_NAME),1)
                     .bindImage(5, TextureHelper::GetBlueNoise()->getVkImageView(),1)

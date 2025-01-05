@@ -34,3 +34,6 @@
 [submodule "ext/meshoptimizer"]
 	path = ext/meshoptimizer
 	url = https://github.com/zeux/meshoptimizer
+[submodule "ext/magick_enum"]
+	path = ext/magick_enum
+	url = git@github.com:Neargye/magic_enum.git

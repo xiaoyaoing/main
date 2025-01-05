@@ -5,11 +5,13 @@ using IntegratorKey = std::string;
 static const IntegratorKey kPathIntegrator     = "path";
 static const IntegratorKey kRestirDIIntegrator = "restir";
 static const IntegratorKey kDDGIIntegrator     = "ddgi";
+static const IntegratorKey kSurfelIntegrator   = "surfel";
 
 static const std::unordered_map<EIntegraotrType, IntegratorKey> kIntegratorTypeToString = {
     {ePathTracing, kPathIntegrator},
     {eDDGI, kDDGIIntegrator},
-    {eRestirDI, kRestirDIIntegrator}
+    {eRestirDI, kRestirDIIntegrator},
+    {eSurfelGI, kSurfelIntegrator}
 };
 
 std::string to_string(EIntegraotrType type) {
@@ -26,6 +28,11 @@ DDGIConfig RenderConfig::getDDGIConfig() const {
 PathTracingConfig RenderConfig::getPathTracingConfig() const {
     return pathTracingConfig;
 }
+
+SurfelConfig RenderConfig::getSurfelConfig() const {
+    return {};
+}
+
 EIntegraotrType RenderConfig::getIntegratorType() const {
     return mIntegratorType;
 }
@@ -118,6 +125,9 @@ void RenderConfig::init() {
     } else if (integratorType == kRestirDIIntegrator) {
         mIntegratorType = eRestirDI;
     }
+    else if (integratorType == kSurfelIntegrator) {
+		mIntegratorType = eSurfelGI;
+	}
 
     {
         scenePath = json["scene_path"].get<std::string>();

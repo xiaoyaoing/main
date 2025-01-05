@@ -4,7 +4,7 @@
 #include "Raytracing/PT/path_commons.h"
 #include "Raytracing/ddgi/ddgi_commons.h"
 #include "RenderGraph/RenderGraph.h"
-#include "RenderPasses/GBufferPass.h"
+#include "RenderPasses/RasterizationPass.h"
 #include "RenderPasses/ShadowMapPass.h"
 
 #include <variant>

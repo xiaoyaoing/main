@@ -7,7 +7,8 @@
 #include "ClipmapCleaner.h"
 #include "CopyAlphaPass.h"
 #include "FinalLightingPass.h"
-#include "RenderPasses/GBufferPass.h"
+#include "imgui.h"
+#include "RenderPasses/RasterizationPass.h"
 #include "LightInjectionPass.h"
 #include "VoxelizationPass.h"
 #include "../../framework/Common/VkCommon.h"
@@ -56,8 +57,7 @@ void VXGI::prepare() {
     // sceneLoadingConfig.sceneScale = glm::vec3(0.008f);
     sceneLoadingConfig.indexType  = VK_INDEX_TYPE_UINT32;
     sceneLoadingConfig.loadLight  = false;
-    loadScene("F:/code/RTXGI-DDGI/samples/test-harness/data/gltf/sponza/Sponza.gltf");
-    // loadScene("F:/bistro/bistro.gltf");
+    loadScene(FileUtils::getResourcePath("scenes/Sponza/gltf/Sponza.gltf"));
 
     GlslCompiler::forceRecompile = true;
 

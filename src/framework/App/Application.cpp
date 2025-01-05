@@ -33,7 +33,7 @@
 
 /*
  * Initializes window dimensions and application name
- * Calls initWindow to create the application window       
+ * Calls initWindow to create the application window
  */
 Application::Application(const char* name,
                          uint32_t    width,
@@ -85,7 +85,7 @@ void Application::prepare() {
     TextureHelper::Initialize();
     RenderPtrManangr::Initalize();
     SamplerManager::Initialize(*device);
-    
+
     camera = std::make_shared<Camera>();
     mPostProcessPass = std::make_unique<PostProcess>();
     mPostProcessPass->init();
@@ -106,7 +106,7 @@ void Application::initVk() {
 
     getRequiredInstanceExtensions();
 
-  
+
     _instance = std::make_unique<Instance>(std::string("vulkanApp"), instanceExtensions, validationLayers);
     surface   = window->createSurface(*_instance);
 
@@ -133,8 +133,8 @@ void Application::initVk() {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(physical_devices[0], &deviceProperties);
     LOGI("Device Name: {}", deviceProperties.deviceName)
-    
-    
+
+
     device = std::make_unique<Device>(physical_devices[0], surface, _instance->getHandle(), deviceExtensions);
 
     createRenderContext();
@@ -180,7 +180,7 @@ void Application::mainloop() {
 
 /**
  * @brief Updates the application state.
- * 
+ *
  * - Calculates the delta time since the last frame.
  * - Checks if the application is focused;
  * - Calls the onViewUpdated() method.
@@ -218,16 +218,16 @@ void Application::update() {
         reloadShader = false;
     }
 
-    updateGUI();
 
     renderContext->beginFrame();
+    updateGUI();
 
     vkWaitForFences(device->getHandle(), 1, &fence, VK_TRUE, UINT64_MAX);
     vkResetFences(device->getHandle(), 1, &fence);
 
     RenderGraph graph(*device);
     graph.importTexture(RENDER_VIEW_PORT_IMAGE_NAME, &renderContext->getCurHwtexture());
-    
+
     if (scene && scene->getLoadCompleteInfo().GetSceneLoaded()) {
         if(sceneFirstLoad){
             onSceneLoaded();
@@ -257,7 +257,7 @@ void Application::update() {
 
     perFrameUpdate();
 
-    
+
 }
 void Application::perFrameUpdate() {
 }
@@ -273,8 +273,8 @@ void Application::updateScene() {
 }
 /**
  * @brief Update GUI
- * 
- * 
+ *
+ *
  * Sets the display size and delta time for ImGui;
  * Starts a new frame;
  * Renders various GUI elements such as:
@@ -294,7 +294,7 @@ void Application::updateGUI() {
     gui->newFrame();
 
     ImGui::Begin("Basic", nullptr, ImGuiWindowFlags_NoMove);
-    
+
     ImGui::Text("%.2f ms/frame ", 1000.f * deltaTime);
     ImGui::NextColumn();
     ImGui::Text(" %d fps", toUint32(1.f / deltaTime));
@@ -331,9 +331,9 @@ void Application::updateGUI() {
     ImGui::Begin("app sepcify", nullptr, ImGuiWindowFlags_NoMove);
     onUpdateGUI();
     ImGui::End();
-    
+
     ImGui::Separator();
-    
+
     mPostProcessPass->updateGui();
     if(view) view->updateGui();
 
@@ -345,7 +345,6 @@ void Application::updateGUI() {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{0.f, 0.f});
 
     ImVec2 size;
-    auto   p = ImGui::GetWindowPos();
     size.x   = ImGui::GetWindowWidth();
     size.y   = ImGui::GetWindowHeight();
 
@@ -620,7 +619,7 @@ void Application::onSceneLoaded() {
     Config::GetInstance().CameraFromConfig(*camera,scene->getName());
     sceneFirstLoad = false;
 
-    
+
 }
 
 void Application::initView() {

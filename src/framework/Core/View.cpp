@@ -18,7 +18,7 @@ View::View(Device& device) {
 }
 void View::setScene(const Scene* scene) {
     mScene = scene;
-    
+
     for (const auto& primitive : mScene->getPrimitives()) {
         mVisiblePrimitives.emplace_back(primitive.get());
     }
@@ -45,6 +45,10 @@ View& View::bindViewBuffer() {
     perViewUnifom.inv_proj      = glm::inverse(perViewUnifom.proj);
     perViewUnifom.inv_view      = glm::inverse(perViewUnifom.view);
 
+    perViewUnifom.znear = mCamera->getNearClipPlane();
+    perViewUnifom.zfar = mCamera->getFarClipPlane();
+
+
     perViewUnifom.resolution     = glm::ivec2(g_context->getViewPortExtent().width, g_context->getViewPortExtent().height);
     perViewUnifom.inv_resolution = glm::vec2(1.0f / perViewUnifom.resolution.x, 1.0f / perViewUnifom.resolution.y);
     perViewUnifom.light_count    = getLights().size();
@@ -69,7 +73,7 @@ View& View::bindViewShading() {
 
     if(lightDirty) updateLight();
     g_context->bindBuffer(static_cast<uint32_t>(UniformBindingPoints::LIGHTS), *mLightBuffer[g_context->getActiveFrameIndex()], 0, mLightBuffer[g_context->getActiveFrameIndex()]->getSize(), 0);
-    
+
     auto             materials  = GetMMaterials();
     BufferAllocation allocation = g_context->allocateBuffer(sizeof(GltfMaterial) * materials.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
     allocation.buffer->uploadData(materials.data(), allocation.size, allocation.offset);
@@ -113,7 +117,7 @@ void View::drawPrimitives(CommandBuffer& commandBuffer) {
             g_context->flushAndDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, primitive->firstVertex, instance_count++);
         }
     }
-    
+
 }
 void View::drawPrimitives(CommandBuffer& commandBuffer, const PrimitiveSelectFunc& selectFunc,bool forceSelect) {
     if(mScene->getMergeDrawCall()) {
@@ -121,7 +125,7 @@ void View::drawPrimitives(CommandBuffer& commandBuffer, const PrimitiveSelectFun
             LOGE("forceSelect is not supported in merge draw call mode");
         return drawPrimitives(commandBuffer);
     }
-    
+
     int instance_count = 0;
     for (const auto& primitive : mVisiblePrimitives) {
         if (selectFunc(*primitive)) {

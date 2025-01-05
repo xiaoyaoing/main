@@ -6,6 +6,12 @@ layout(set = 0, binding = 0) uniform _GlobalFrameUniform {
     mat4 inv_proj;
     mat4 inv_view;
 
+	float z_far;
+	float z_near;
+	float padding1;
+	float padding2;
+
+
     vec3 camera_pos;
 
     uint light_count;

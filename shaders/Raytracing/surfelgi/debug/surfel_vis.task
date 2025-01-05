@@ -1,0 +1,10 @@
+#version 450
+#extension GL_EXT_mesh_shader : require
+
+layout(push_constant) uniform PushConstants {
+    int surfelCount;
+} pushConstants;
+
+void main() {
+    EmitMeshTasksEXT(pushConstants.surfelCount, 1, 1);
+}

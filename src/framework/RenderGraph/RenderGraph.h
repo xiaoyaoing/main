@@ -12,7 +12,7 @@
 /*
  * 1.add pass 需要指明pass的输入 注册RenderGraphTexture 这一步会添加passNode 这里node会根据传入的RenderGraphPass::Descriptor创建RenderTarget
  * 2.指明pass node在execute时需要执行的东西 renderpass的创建根据node
- * 
+ *
  *
  *
  *
@@ -83,11 +83,11 @@ public:
                                RenderGraphTexture::Usage             usage =
                                    RenderGraphTexture::Usage::NONE);
 
-        RenderGraphHandle readBuffer(RenderGraphHandle        input,
+        Builder& readBuffer(RenderGraphHandle        input,
                                      RenderGraphBuffer::Usage usage =
                                          RenderGraphBuffer::Usage::NONE);
 
-        RenderGraphHandle writeBuffer(RenderGraphHandle        output,
+        Builder& writeBuffer(RenderGraphHandle        output,
                                       RenderGraphBuffer::Usage usage =
                                           RenderGraphBuffer::Usage::NONE);
 
@@ -171,6 +171,8 @@ public:
     std::vector<std::string> getPasseNames(RenderPassType type) const;
 
     bool needToCutResource(ResourceNode* resourceNode) const;
+    bool getDebugBarrierInfo() const;
+    void setDebugBarrierInfo(bool debugBarrierInfo);
 
     ~RenderGraph() {
         for (const auto& passNode : mPassNodes)
@@ -183,6 +185,7 @@ public:
         return resourceStateTracker;
     }
 private:
+    bool debugBarrierInfo{false};
     RenderGraphHandle addTexture(RenderGraphTexture* texture);
     RenderGraphHandle addBuffer(RenderGraphBuffer* buffer);
 

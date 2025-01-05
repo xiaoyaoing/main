@@ -589,13 +589,20 @@ void RenderContext::flushAndDispatch(CommandBuffer& commandBuffer, uint32_t grou
     flush(commandBuffer);
     vkCmdDispatch(commandBuffer.getHandle(), groupCountX, groupCountY, groupCountZ);
 }
-void RenderContext::flushAndDispatchMesh(CommandBuffer& commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) {
+
+void RenderContext::flushAndDispatchIndirect(CommandBuffer& commandBuffer, Buffer& buffer, VkDeviceSize offset) {
     flush(commandBuffer);
-    vkCmdDrawMeshTasksEXT(commandBuffer.getHandle(), groupCountX, groupCountY, groupCountZ);
+    vkCmdDispatchIndirect(commandBuffer.getHandle(), buffer.getHandle(), offset);
 }
+
 void RenderContext::flushAndDrawMeshTasks(CommandBuffer& commandBuffer, uint groupCountX, uint groupCountY, uint groupCountZ) {
     flush(commandBuffer);
     vkCmdDrawMeshTasksEXT(commandBuffer.getHandle(), groupCountX, groupCountY, groupCountZ);
+}
+
+void RenderContext::flushAndDrawMeshTasksIndirect(CommandBuffer& commandBuffer, Buffer& buffer, VkDeviceSize offset) {
+    flush(commandBuffer);
+    vkCmdDrawMeshTasksIndirectNV(commandBuffer.getHandle(), buffer.getHandle(), offset, 1, 0);
 }
 
 void RenderContext::beginRenderPass(CommandBuffer& commandBuffer, RenderTarget& renderTarget, const std::vector<SubpassInfo>& subpassInfos) {

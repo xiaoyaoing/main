@@ -118,8 +118,9 @@ public:
     void flushAndDraw(CommandBuffer& commandBuffer, uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0, uint32_t firstInstance = 0);
     void traceRay(CommandBuffer& commandBuffer, VkExtent3D dims);
     void flushAndDispatch(CommandBuffer& commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
-    void flushAndDispatchMesh(CommandBuffer& commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+    void flushAndDispatchIndirect(CommandBuffer& commandBuffer, Buffer& buffer, VkDeviceSize offset);
     void flushAndDrawMeshTasks(CommandBuffer& commandBuffer, uint groupCountX, uint groupCountY, uint groupCountZ);
+    void flushAndDrawMeshTasksIndirect(CommandBuffer& commandBuffer, Buffer& buffer, VkDeviceSize offset);
     void beginRenderPass(CommandBuffer& commandBuffer, RenderTarget& renderTarget, const std::vector<SubpassInfo>& subpassInfos);
     void nextSubpass(CommandBuffer& commandBuffer);
     void flush(CommandBuffer& commandBuffer);

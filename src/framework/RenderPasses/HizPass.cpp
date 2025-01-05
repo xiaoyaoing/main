@@ -66,7 +66,9 @@ void HizPass::render(RenderGraph& rg) {
             auto depth           = rg.getBlackBoard().getHandle(DEPTH_IMAGE_NAME);
             auto depth_hierrachy = rg.getBlackBoard().getHandle("depth_hiz");
             //Layout will be handle explicitly
-            builder.readTexture(depth, TextureUsage::SAMPLEABLE).writeTexture(depth_hierrachy, TextureUsage::NONE);
+            //Write to the hiz texture but in execute we will transition it to read only
+            //So here we use sampleable usage for the hiz texture
+            builder.readTexture(depth, TextureUsage::SAMPLEABLE).writeTexture(depth_hierrachy, TextureUsage::SAMPLEABLE);
             settings.pipelineLayout = &rg.getDevice().getResourceCache().requestPipelineLayout(ShaderPipelineKey{"common/hiz.comp"});
         },
         [&](RenderPassContext& context) {
@@ -74,11 +76,13 @@ void HizPass::render(RenderGraph& rg) {
             auto       mip       = hierrachy.getMipLevelCount();
             VkExtent2D extent    = hierrachy.getExtent2D();
             for (uint32_t i = 0; i < mip; i++) {
-                auto             barriers = BuildHizBarrier(i, hierrachy.getVkImage());
-                VkDependencyInfo dependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
-                dependencyInfo.imageMemoryBarrierCount = barriers.size();
-                dependencyInfo.pImageMemoryBarriers    = barriers.data();
-                vkCmdPipelineBarrier2(context.commandBuffer.getHandle(), &dependencyInfo);
+                {
+                    auto             barriers = BuildHizBarrier(i, hierrachy.getVkImage());
+                   VkDependencyInfo dependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+                   dependencyInfo.imageMemoryBarrierCount = barriers.size();
+                   dependencyInfo.pImageMemoryBarriers    = barriers.data();
+                   vkCmdPipelineBarrier2(context.commandBuffer.getHandle(), &dependencyInfo);
+                }
                 if (i == 0) {
                     g_context->bindImageSampler(0, rg.getBlackBoard().getImageView(DEPTH_IMAGE_NAME), rg.getDevice().getResourceCache().requestSampler());
                     g_context->bindImage(0, hierrachy.getVkImageView(VK_IMAGE_VIEW_TYPE_MAX_ENUM, VK_FORMAT_UNDEFINED, 0, 0, 1));
@@ -92,6 +96,25 @@ void HizPass::render(RenderGraph& rg) {
                 g_context->bindPushConstants(pushConstant).flushAndDispatch(context.commandBuffer, dispatchSize.x, dispatchSize.y, 1);
                 extent.width  = std::max(1u, extent.width / 2);
                 extent.height = std::max(1u, extent.height / 2);
+
+                if (i == mip - 1) {
+					VkImageMemoryBarrier2 barrier{};
+					barrier.sType             = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+					barrier.image             = hierrachy.getVkImage().getHandle();
+					barrier.oldLayout         = VK_IMAGE_LAYOUT_GENERAL;
+					barrier.newLayout         = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+					barrier.subresourceRange  = {VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1};
+					barrier.srcAccessMask     = VK_ACCESS_SHADER_WRITE_BIT;
+					barrier.dstAccessMask     = VK_ACCESS_SHADER_READ_BIT;
+					barrier.srcStageMask      = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+					barrier.dstStageMask      = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+					barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+					barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+					VkDependencyInfo dependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+                    dependencyInfo.imageMemoryBarrierCount = 1;
+                    dependencyInfo.pImageMemoryBarriers    = &barrier;
+                    vkCmdPipelineBarrier2(context.commandBuffer.getHandle(), &dependencyInfo);
+				}
             }
         });
 }

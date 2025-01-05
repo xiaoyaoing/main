@@ -47,6 +47,8 @@ RenderGraph::Builder& RenderGraph::Builder::writeTexture(RenderGraphHandle outpu
     renderGraph.edges.emplace_back(Edge{.pass = node, .resource = texture, .usage = static_cast<uint16_t>(usage), .read = false});
     return *this;
 }
+
+
 RenderGraph::Builder& RenderGraph::Builder::writeTexture(const std::string& name, RenderGraphTexture::Usage usage) {
     auto handle = renderGraph.getBlackBoard().getHandle(name);
     return writeTexture(handle, usage);
@@ -73,16 +75,17 @@ RenderGraph::Builder& RenderGraph::Builder::writeTextures(const std::vector<Rend
     return *this;
 }
 
-RenderGraphHandle RenderGraph::Builder::readBuffer(RenderGraphHandle input, RenderGraphBuffer::Usage usage) {
+RenderGraph::Builder& RenderGraph::Builder::readBuffer(RenderGraphHandle input, RenderGraphBuffer::Usage usage) {
     auto buffer = renderGraph.getBuffer(input);
     renderGraph.edges.emplace_back(Edge{.pass = node, .resource = buffer, .usage = static_cast<uint16_t>(usage), .read = true});
-    return input;
+    return *this;
+
 }
 
-RenderGraphHandle RenderGraph::Builder::writeBuffer(RenderGraphHandle output, RenderGraphBuffer::Usage usage) {
+RenderGraph::Builder& RenderGraph::Builder::writeBuffer(RenderGraphHandle output, RenderGraphBuffer::Usage usage) {
     auto buffer = renderGraph.getBuffer(output);
     renderGraph.edges.emplace_back(Edge{.pass = node, .resource = buffer, .usage = static_cast<uint16_t>(usage), .read = false});
-    return output;
+    return *this;
 }
 
 RenderGraphHandle RenderGraph::createBuffer(const std::string& name, const RenderGraphBuffer::Descriptor& desc) {
@@ -385,6 +388,14 @@ std::vector<std::string> RenderGraph::getPasseNames(RenderPassType type) const {
 }
 bool RenderGraph::needToCutResource(ResourceNode* resourceNode) const {
     return resourceNode->getRefCount() == 0 && cutUnUsedResources;
+}
+
+void RenderGraph::setDebugBarrierInfo(bool _debugBarrierInfo) {
+    debugBarrierInfo = _debugBarrierInfo;
+}
+
+bool RenderGraph::getDebugBarrierInfo() const {
+    return debugBarrierInfo;
 }
 
 void RenderGraph::execute(CommandBuffer& commandBuffer) {

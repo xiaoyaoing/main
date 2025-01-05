@@ -11,6 +11,7 @@
 #include "common.glsl"
 #include "bsdf.glsl"
 
+#define ENABLE_VBUFFER
 
 layout(binding = 0, set = 2, rgba32f) uniform image2D direct_lighting_image;
 layout(buffer_reference, std430, buffer_reference_align = 4) readonly buffer GBuffer_{ GBuffer r[]; };
@@ -24,14 +25,13 @@ layout(push_constant) uniform _PushConstantRay { PCPath pc_ray; };
 layout(binding = 1, set = 2, r32f) writeonly uniform image2D depth_image;
 #endif
 
+#ifdef ENABLE_VBUFFER
+layout(binding = 2, set = 2, rgba32f) uniform image2D vbuffer_image;
+#endif
+
 #include "trace_common.glsl"
-#include "ddgi/ddgi_commons.h"
 #include "util.glsl"
 
-layout(set = 0, binding = 0) uniform _DDGIUboBuffer{ DDGIUbo ddgi_ubo; };
-
-
-#include "ddgi/ddgi_sample.glsl"
 uvec4 seed = init_rng(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, pc_ray.frame_num);
 
 GBuffer init_gbuffer_data() {
@@ -61,99 +61,6 @@ vec3 eval_env(vec3 dir) {
     return texture(scene_textures[lights[scene_desc.envmap_idx].light_texture_id], dir_uv).xyz;
 }
 
-
-vec3 get_probe_position(ivec3 probe_coord){
-    float  probe_grid_size = ddgi_ubo.probe_distance;
-    vec3 probe_grid_origin = ddgi_ubo.probe_start_position;
-    return probe_grid_origin + vec3(probe_coord) * probe_grid_size;
-}
-
-
-vec3 RTXGISphericalFibonacci(float sampleIndex, float numSamples)
-{
-    const float b = (sqrt(5.f) * 0.5f + 0.5f) - 1.f;
-    float phi = 3.1415926 * 2 * fract(sampleIndex * b);
-    float cosTheta = 1.f - (2.f * sampleIndex + 1.f) * (1.f / numSamples);
-    float sinTheta = sqrt(clamp(1.f - (cosTheta * cosTheta), 0.f, 1.f));
-
-    return vec3((cos(phi) * sinTheta), (sin(phi) * sinTheta), cosTheta);
-}
-
-
-vec3 calculate_probe_contribution(vec3 position, vec3 normal) {
-    vec3 total_radiance = vec3(0.0);
-    float total_weight = 0.0;
-
-    return vec3(0);
-   // return normal;
-    // 找到最近的8个探针
-    for (int i = 0; i < 1; ++i) {
-        
-        ivec3 probe_offset = ivec3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
-        ivec3 probe_coord = get_probe_coord_by_position(position) + probe_offset;
-        vec3 probe_position = get_probe_position(probe_coord);
-         probe_position = position;// + normal * 0.1;
-
-        // 在每个探针上追踪256条光线
-        vec3 probe_radiance = vec3(0.0);
-        float probe_weight = 0;
-        int rays_per_probe = ddgi_ubo.rays_per_probe;
-        rays_per_probe = 256;
-        for (int j = 0; j < rays_per_probe; ++j) {
-            vec3 ray_radiance = vec3(0.0);
-            vec3 ray_direction = mat3(pc_ray.probe_rotation) * spherical_fibonacci(j, rays_per_probe);
-            ray_direction = RTXGISphericalFibonacci(j, rays_per_probe);
-            ray_direction =  spherical_fibonacci(j, rays_per_probe);
-            ray_direction = normalize(ray_direction);
-            
-            if(dot(ray_direction, normal) < 0.0){
-                continue;
-            }
-            vec3 ray_origin = probe_position + ray_direction * 0.001;
-
-            hitPayload = init_hit_payload();
-            traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ray_origin, 0.001, ray_direction, 10000.0, 0);
-
-            float weight = dot(normal, ray_direction);
-            weight = max(0.0, weight);
-            
-            if (found_intersection(hitPayload)) {
-                ray_radiance += Le(ray_direction);
-                SurfaceScatterEvent event = make_surface_scatter_event(hitPayload, -ray_direction,false);
-                vec3 light_sample = uniform_sample_one_light(seed, event, pc_ray.light_num, true,false);
-                ray_radiance += light_sample;
-               // ray_radiance  = ray_direction;
-              //  weight = 1.0;
-                //ray_radiance = ray_direction;
-                //ray_radiance = vec3(0.05, 0.05, 0.05);
-            }
-            
-            
-            
-           // ray_radiance = ray_direction;
-
-            probe_radiance += ray_radiance * weight;
-            probe_weight += weight;
-        }
-//        if (probe_weight > 0.0)
-//        probe_radiance /= probe_weight;
-        probe_radiance /= 20;
-
-        // 计算三线性权重
-        vec3 trilinear_weight = vec3(1.0) - abs(position - probe_position) / ddgi_ubo.probe_distance;
-        float weight = trilinear_weight.x * trilinear_weight.y * trilinear_weight.z;
-
-        total_radiance += probe_radiance * weight;
-        total_weight += weight;
-    }
-
-    if (total_weight > 0.0) {
-        total_radiance /= total_weight;
-    }
-
-    return total_radiance;
-}
-
 void main() {
     const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
     const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
@@ -177,7 +84,7 @@ void main() {
         hitPayload = init_hit_payload();
 
         traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
-        
+
         vec3 n_g = hitPayload.n_g;
         vec3 p = hitPayload.p;
 
@@ -194,25 +101,23 @@ void main() {
             radiance += Le(direction.xyz);
             vec3 light_sample = uniform_sample_one_light(seed, event, pc_ray.light_num, pc_ray.enable_sample_light > 0, pc_ray.enable_sample_bsdf > 0);
             radiance += light_sample;
-
-            // 新增逻辑：计算探针贡献
-            vec3 probe_contribution = calculate_probe_contribution(p, n_g);
-            radiance += probe_contribution;
         }
     }
     if (isnan(radiance.x) || isnan(radiance.y) || isnan(radiance.z)) {
         debugPrintfEXT("nan radiance %f %f %f\n", radiance.x, radiance.y, radiance.z);
     }
-    if (pc_ray.frame_num > 0) {
 
-        float w = 1. / float(pc_ray.frame_num + 1);
-        vec3 old_radiance = imageLoad(direct_lighting_image, ivec2(gl_LaunchIDEXT.xy)).xyz;\
-        w = 1;
-        imageStore(direct_lighting_image, ivec2(gl_LaunchIDEXT.xy),
-        vec4(mix(old_radiance, radiance, w), 1.f));
-
-    } else {
-        imageStore(direct_lighting_image, ivec2(gl_LaunchIDEXT.xy), vec4(radiance, 1.f));
-    }    
+#ifdef ENABLE_VBUFFER
+    vec4 vbuffer_data;
+    if(!found_intersect) {
+		vbuffer_data.x = -1;
+	}
+	else {
+	vbuffer_data = vec4(float(hitPayload.prim_idx), float(hitPayload.triangle_idx), hitPayload.uv);
+	}
+    imageStore(vbuffer_image, ivec2(gl_LaunchIDEXT.xy), vbuffer_data);
+#else
+    imageStore(direct_lighting_image, ivec2(gl_LaunchIDEXT.xy), vec4(radiance, 1.f));
     gbuffer_buffer.r[pixel_idx] = gbuffer_data;
+#endif
 }

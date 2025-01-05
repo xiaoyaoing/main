@@ -82,7 +82,7 @@ void JsonLoader::loadCamera() {
     camera->setPerspective(GetOptional(cameraJson, "fov", 45.0f), aspect, GetOptional(cameraJson, "zNear", 0.1f), GetOptional(cameraJson, "zFar", 4000.0f));
     camera->setFlipY(true);
 
-    camera->setScreenSize(int(resolution.x), int(resolution.y)); 
+    camera->setScreenSize(int(resolution.x), int(resolution.y));
     cameras.push_back(camera);
 }
 void JsonLoader::PreprocessMaterials() {
@@ -216,7 +216,7 @@ void JsonLoader::loadMaterials() {
     // texture_index.clear();
 
     for (auto& materialJson : materialJsons) {
-        
+
         RTMaterial rtMaterial;
         if (materialJson.contains("albedo") && materialJson["albedo"].is_string()) {
             auto textureName      = materialJson["albedo"].get<std::string>();
@@ -450,7 +450,7 @@ void JsonLoader::loadPrimitives() {
             }
         }
         auto primitive = std::make_unique<Primitive>(vertexOffset, indexOffset, vertexCount, indexCount, material_index);
-        
+
         vertexOffsets.push_back(vertexOffset);
         indexOffsets.push_back(indexOffset);
 
@@ -459,7 +459,7 @@ void JsonLoader::loadPrimitives() {
 
         indexBuffers.emplace_back(std::move(primitiveData->indexs));
         vertexDatas.push_back(std::move(primitiveData->buffers));
-        
+
 
         primitive->lightIndex = lightIndex;
         auto bbox             = primitiveData->bbox;
@@ -468,7 +468,7 @@ void JsonLoader::loadPrimitives() {
         primitive->setDimensions(vec3(std::min(tempMin.x, tempMax.x), std::min(tempMin.y, tempMax.y), std::min(tempMin.z, tempMax.z)),
                                  vec3(std::max(tempMin.x, tempMax.x), std::max(tempMin.y, tempMax.y), std::max(tempMin.z, tempMax.z)));
         primitive->transform = transform;
-        
+
         sceneBBox.unite(primitive->getDimensions());
         primitives.push_back(std::move(primitive));
     }

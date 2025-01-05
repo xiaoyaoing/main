@@ -273,7 +273,6 @@ RenderPass::RenderPass(Device& device, const std::vector<Attachment>& attachment
             subpassDescription.colorAttachmentCount = colorAttachments[i].size();
             subpassDescription.pColorAttachments    = colorAttachments[i].empty() ? nullptr : colorAttachments[i].data();
 
-            //            subpassDescription. = colorAttachments[i].size();
             subpassDescription.pResolveAttachments = colorResolveAttachments[i].empty() ? nullptr : colorResolveAttachments[i].data();
 
             subpassDescription.pDepthStencilAttachment = nullptr;
@@ -312,10 +311,6 @@ RenderPass::RenderPass(Device& device, const std::vector<Attachment>& attachment
     renderPassInfo.pSubpasses      = subpassDescriptions.data();
     renderPassInfo.dependencyCount = subpassDependencies.size();
     renderPassInfo.pDependencies   = subpassDependencies.data();
-
-    if(subpassDescriptions[0].pColorAttachments[0].layout== VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        LOGE("attachment is VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL");
-    }
 
     for (const auto& attachmentDesc : attachmentDescriptions) {
         attachmentFinalLayouts.push_back(getVulkanLayout(attachmentDesc.finalLayout, attachmentDesc.format));

@@ -13,7 +13,7 @@
 #include "Core/View.h"
 #include "Core/math.h"
 #include "Core/Shader/GlslCompiler.h"
-#include "RenderPasses/GBufferPass.h"
+#include "RenderPasses/RasterizationPass.h"
 #include "RenderPasses/HizPass.h"
 #include "RenderPasses/SSGIPass.h"
 #include "RenderPasses/ShadowMapPass.h"

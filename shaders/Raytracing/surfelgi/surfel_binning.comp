@@ -1,0 +1,68 @@
+#version 460
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
+#include "surfel.h"
+#include "../../perFrame.glsl"
+#include "surfel_common.glsl"
+//#include "../common.glsl"
+
+layout(local_size_x = SURFEL_INDIRECT_NUMTHREADS, local_size_y = 1, local_size_z = 1) in;
+
+// Buffers (set = 0)
+layout(set = 0, binding = 1) buffer _SurfelStats {
+    SurfelStats surfelStats;
+} ;
+
+layout(set = 0, binding = 2) buffer SurfelBuffer {
+    Surfel surfels[];
+} surfelBuffer;
+
+layout(set = 0, binding = 3) buffer SurfelAliveBuffer {
+    uint indices[];
+} surfelAliveBuffer;
+
+layout(set = 0, binding = 4) buffer SurfelGridBuffer {
+    SurfelGridCell cells[];
+} surfelGrid;
+
+layout(set = 0, binding = 5) buffer SurfelCellBuffer {
+    uint indices[];
+} surfelCellBuffer;
+
+void main() {
+    uint thread_id = gl_GlobalInvocationID.x;
+    uint surfel_count = surfelStats.surfelCount;
+
+    if (thread_id >= surfel_count) {
+        return;
+    }
+
+    // 获取当前surfel
+    uint surfel_index = surfelAliveBuffer.indices[thread_id];
+    Surfel surfel = surfelBuffer.surfels[surfel_index];
+
+    // 只处理有效的surfel
+    if (surfel.radius > 0) {
+        // 计算surfel所在的中心cell
+        ivec3 center_cell = surfel_cell(surfel.position);
+
+        // 遍历相邻的27个cells
+        for (uint i = 0; i < 27; ++i) {
+            ivec3 grid_pos = center_cell + surfel_neighbor_offsets[i];
+
+            // 检查surfel是否与cell相交
+            if (surfel_cellintersects(surfel, grid_pos)) {
+                uint cell_index = surfel_cellindex(grid_pos);
+
+                // 原子操作更新cell中的surfel计数并获取之前的计数
+                uint prev_count = atomicAdd(surfelGrid.cells[cell_index].count, 1);
+
+                // 将surfel添加到cell的索引列表中
+                uint offset = surfelGrid.cells[cell_index].offset + prev_count;
+                surfelCellBuffer.indices[offset] = surfel_index;
+            }
+        }
+    }
+}

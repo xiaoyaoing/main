@@ -19,7 +19,7 @@ public:
     void  uploadData(const void* srcData, uint64_t size = -1, uint64_t offset = 0);
     void* map();
     void  unmap();
-    
+
     template<typename T>
     std::vector<T> getData() {
         std::vector<T> result;

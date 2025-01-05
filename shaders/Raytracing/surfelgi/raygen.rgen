@@ -1,0 +1,105 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_shader_atomic_float : require
+
+#include "surfel.h"
+#include "../common.glsl"
+#include "../bsdf.glsl"
+#include "../trace_common.glsl"
+
+layout(location = 0) rayPayloadEXT HitPayload hitPayload;
+layout(location = 1) rayPayloadEXT AnyHitPayload any_hit_payload;
+
+// Push constants
+layout(push_constant) uniform _PushConstantRay { PCPath pc_ray; };
+
+// Buffers (set = 0)
+layout(set = 0, binding = 0) buffer SurfelStats {
+    uint surfelCount;
+    uint surfelNextcount;
+    uint surfelDeadcount;
+    uint surfelCellallocator;
+    uint surfelRaycount;
+    uint surfelShortage;
+} surfelStats;
+
+layout(set = 0, binding = 1) buffer SurfelBuffer {
+    Surfel surfels[];
+} surfelBuffer;
+
+layout(set = 0, binding = 2) buffer SurfelRayBuffer {
+    SurfelRayData rays[];
+} surfelRayBuffer;
+
+layout(set = 0, binding = 3) uniform _SurfelUBO {
+    SurfelUBO surfel_ubo;
+};
+
+void main() {
+    // 获取当前surfel和ray索引
+    uint surfel_index = gl_LaunchIDEXT.x;
+    uint ray_index = gl_LaunchIDEXT.y;
+    
+    // 获取surfel数据
+    Surfel surfel = surfelBuffer.surfels[surfel_index];
+    
+    // 初始化随机数生成器
+    uvec4 seed = init_rng(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, pc_ray.frame_num);
+    
+    // 设置ray tracing参数
+    uint rayFlags = gl_RayFlagsOpaqueEXT;
+    uint cullMask = 0xff;
+    float tmin = 0.001;
+    float tmax = 10000.0;
+    
+    // 根据surfel的法线生成半球采样方向
+    vec3 normal = normalize(surfel.local_normal);
+    vec3 direction = normalize(spherical_fibonacci(ray_index, surfel_ubo.rays_per_surfel));
+    direction = align_hemisphere_direction(direction, normal);
+    
+    // 设置ray起点
+    vec3 origin = surfel.local_position;
+    
+    // 初始化结果
+    vec3 radiance = vec3(0);
+    float distance = 0;
+    
+    // 发射ray
+    hitPayload = init_hit_payload();
+    traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, origin, tmin, direction, tmax, 0);
+    
+    if (!found_intersection(hitPayload)) {
+        // 未击中，采样环境光
+        radiance = eval_env(direction);
+        distance = tmax;
+    } else {
+        distance = hitPayload.dist;
+        
+        if (hitPayload.hit_kind == gl_HitKindBackFacingTriangleEXT) {
+            // 击中背面
+            distance = -0.2 * distance;
+        } else {
+            // 计算直接光照
+            SurfaceScatterEvent event = make_surface_scatter_event(hitPayload, -direction, false);
+            radiance += Le(direction, event);
+            
+            // 采样一个光源
+            vec3 light_sample = uniform_sample_one_light(seed, event, pc_ray.light_num, true, false);
+            radiance += light_sample;
+        }
+    }
+    
+    // 存储结果
+    uint ray_buffer_index = surfel_index * surfel_ubo.rays_per_surfel + ray_index;
+    SurfelRayData ray_data;
+    ray_data.radiance = radiance;
+    ray_data.direction = direction;
+    ray_data.depth = distance;
+    surfelRayBuffer.rays[ray_buffer_index] = ray_data;
+}

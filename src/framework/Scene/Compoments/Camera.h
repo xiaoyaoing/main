@@ -240,8 +240,8 @@ protected:
     float m_aspect{1.f};
     float m_fovY{1.f};
 
-    float m_screenWidth{0.f};
-    float m_screenHeight{0.f};
+    float m_screenWidth{1920.f};
+    float m_screenHeight{1080.f};
 
     glm::mat4 m_view;
     glm::mat4 m_proj;

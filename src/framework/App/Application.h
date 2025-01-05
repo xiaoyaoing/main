@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Common/RenderConfig.h"
 #include "Core/Buffer.h"
 #include "Core/Device/Device.h"
 #include "PlatForm/Window.h"
@@ -12,6 +11,7 @@
 #include <vk_mem_alloc.h>
 #include <vector>
 
+#include "Common/RenderConfig.h"
 #include "Common/Timer.h"
 #include "Core/View.h"
 #include "RenderPasses/RenderPassBase.h"

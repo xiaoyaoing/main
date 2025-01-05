@@ -1,0 +1,121 @@
+#version 460
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_scalar_block_layout : enable
+
+#include "surfel.h"
+#include "../common.glsl"
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+// Buffers (set = 0)
+layout(set = 0, binding = 0) buffer SurfelStats {
+    uint surfelCount;
+    uint surfelNextcount;
+    uint surfelDeadcount;
+    uint surfelCellallocator;
+    uint surfelRaycount;
+    uint surfelShortage;
+} surfelStats;
+
+layout(set = 0, binding = 1) buffer SurfelBuffer {
+    Surfel surfels[];
+} surfelBuffer;
+
+layout(set = 0, binding = 2) buffer SurfelGridBuffer {
+    SurfelGridCell cells[];
+} surfelGrid;
+
+layout(set = 0, binding = 3) buffer SurfelAliveBuffer_CURRENT {
+    uint indices[];
+} surfelAlive_current;
+
+layout(set = 0, binding = 4) buffer SurfelAliveBuffer_NEXT {
+    uint indices[];
+} surfelAlive_next;
+
+layout(set = 0, binding = 5) buffer SurfelDeadBuffer {
+    uint indices[];
+} surfelDead;
+
+layout(set = 0, binding = 6) buffer SurfelRayBuffer {
+    SurfelRayData rays[];
+} surfelRayBuffer;
+
+void main() {
+    uint thread_id = gl_GlobalInvocationID.x;
+    uint surfel_count = surfelStats.surfelCount;
+    
+    if (thread_id >= surfel_count) {
+        return;
+    }
+
+    // 获取当前surfel索引
+    uint surfel_index = surfelAlive_current.indices[thread_id];
+    Surfel surfel = surfelBuffer.surfels[surfel_index];
+
+    // 更新surfel位置和法线
+    // TODO: 根据您的需求添加位置和法线的更新逻辑
+
+    // 计算surfel所在的grid cell
+    ivec3 center_cell = surfel_cell(surfel.local_position);
+    
+    // 更新grid cells中的surfel计数
+    for (uint i = 0; i < 27; ++i) {
+        ivec3 grid_pos = center_cell + surfel_neighbor_offsets[i];
+        
+        if (surfel_cellintersects(surfel, grid_pos)) {
+            uint cell_index = surfel_cellindex(grid_pos);
+            atomicAdd(surfelGrid.cells[cell_index].count, 1);
+        }
+    }
+
+    // 检查是否需要回收surfel
+    bool shortage = atomicOr(surfelStats.surfelShortage, 0) > 0;
+    if (surfel.recycle_time > SURFEL_RECYCLE_TIME && shortage) {
+        // 添加到死亡列表
+        uint dead_count;
+        atomicAdd(surfelStats.surfelDeadcount, 1, dead_count);
+        surfelDead.indices[dead_count] = surfel_index;
+        return;
+    }
+
+    // 保持surfel存活
+    uint alive_count;
+    atomicAdd(surfelStats.surfelNextcount, 1, alive_count);
+    surfelAlive_next.indices[alive_count] = surfel_index;
+
+    // 确定surfel的ray数量
+    uint ray_count_request = uint(saturate(surfel.max_inconsistency) * SURFEL_RAY_BOOST_MAX);
+    
+    // 根据recycle时间调整ray数量
+    if (surfel.recycle_time > 10) {
+        ray_count_request = 1;
+    }
+    if (surfel.recycle_time > 60) {
+        ray_count_request = 0;
+    }
+
+    // 分配ray
+    uint ray_offset = 0;
+    if (ray_count_request > 0) {
+        atomicAdd(surfelStats.surfelRaycount, ray_count_request, ray_offset);
+    }
+
+    uint ray_count = (ray_offset < SURFEL_RAY_BUDGET) ? ray_count_request : 0;
+    ray_count = min(ray_count, SURFEL_RAY_BUDGET - ray_offset);
+    ray_count &= 0xFF;
+
+    // 更新ray数据
+    surfel.ray_offset = ray_offset & 0xFFFFFF;
+    surfel.ray_count = ray_count;
+
+    // 存储更新后的surfel
+    surfelBuffer.surfels[surfel_index] = surfel;
+
+    // 初始化ray数据
+    SurfelRayData initial_ray;
+    initial_ray.surfel_index = surfel_index;
+    for (uint ray_index = 0; ray_index < ray_count; ++ray_index) {
+        surfelRayBuffer.rays[ray_offset + ray_index] = initial_ray;
+    }
+}

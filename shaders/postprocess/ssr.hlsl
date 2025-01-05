@@ -16,12 +16,12 @@ struct Frame {
 };
 
 struct GlobalFrameUniform {
-  matrix view_proj;
-  matrix inv_view_proj;
-  matrix proj;
-  matrix view;
-  matrix inv_proj;
-  matrix inv_view;
+  row_major float4x4 view_proj;
+  row_major float4x4 inv_view_proj;
+  row_major float4x4 proj;
+  row_major float4x4 view;
+  row_major float4x4 inv_proj;
+  row_major float4x4 inv_view;
   float3 camera_pos;
   uint light_count;
   int2 resolution;
@@ -117,7 +117,7 @@ float3 sample_reflection_dir(float3 normal, float3 world_wo, float roughness,
   return to_world(frame, wi);
 }
 
-float3 InvProjectPosition(float3 coord, matrix mat) {
+float3 InvProjectPosition(float3 coord, row_major float4x4 mat) {
   coord.y = (1 - coord.y);
   coord.xy = 2 * coord.xy - 1;
   float4 projected = mul(mat, float4(coord, 1.0));
@@ -327,6 +327,8 @@ float ValidHit(float3 hit, float2 uv, float3 world_space_ray_direction,
 
   // 声明和初始化 uv
   float2 uv = DTid.xy / pc.screen_size; // 根据需要计算 UV 坐标
+  uv.x = float(DTid.x) / pc.screen_size.x;
+  uv.y = float(DTid.y) / pc.screen_size.y;
 
   // 从 G-buffer 中获取数据
   float4 diffuse_roughness =
@@ -335,6 +337,8 @@ float ValidHit(float3 hit, float2 uv, float3 world_space_ray_direction,
       gbuffer_normal_metalic.SampleLevel(samplerLinear, uv, 0);
   float depth = gbuffer_depth.SampleLevel(samplerLinear, uv, 0).x;
 
+  out_image[DTid.xy] = float4(diffuse_roughness.rgb, 1.0);
+ // out_image[DTid.xy] = float4(uv, 0.0, 1.0);
   if (depth == 1) {
     // 如果深度为 1，直接返回颜色
     float4 color = frame_color_attach.SampleLevel(samplerLinear, uv, 0);
