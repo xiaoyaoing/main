@@ -1,0 +1,138 @@
+#version 460
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_shader_atomic_float : require
+
+#include "surfel.h"
+#include "../../perFrame.glsl"
+#include "surfel_common.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// Buffers (set = 0)
+layout(set = 0, binding = 1) buffer _SurfelStats {
+    SurfelStats surfelStats;
+};
+
+layout(set = 0, binding = 2) buffer _SurfelBuffer {
+    Surfel surfels[];
+}
+surfelBuffer;
+
+layout(set = 0, binding = 3) buffer _SurfelRayBuffer {
+    SurfelRayData rays[];
+}
+surfelRayBuffer;
+
+layout(set = 0, binding = 4) buffer _SurfelIrradianceBuffer {
+    vec3 irradiance[];
+}
+surfelIrradianceBuffer;
+
+layout(set = 0, binding = 5) buffer _SurfelDataBuffer {
+    SurfelData surfelData[];
+}
+surfelDataBuffer;
+
+layout(set = 0, binding = 6) buffer _SurfelVarianceBuffer {
+    SurfelVarianceDataPacked varianceData[];
+}
+surfelVarianceBuffer;
+
+layout(set = 0, binding = 7) buffer _SurfelMomentsTexture {
+    vec2 moments[];
+}
+surfelMomentsTexture;
+
+void main() {
+    uint thread_id    = gl_GlobalInvocationID.x;
+    uint surfel_count = surfelStats.surfelCount;
+
+    if (thread_id >= surfel_count) {
+        return;
+    }
+
+    // Get the current surfel
+    uint       surfel_index = thread_id;
+    Surfel     surfel       = surfelBuffer.surfels[surfel_index];
+    SurfelData surfel_data  = surfelDataBuffer[surfel_index];
+
+    // Initialize variables for integration
+    vec3  accumulated_irradiance = vec3(0.0);
+    float total_weight           = 0.0;
+
+    // Iterate over rays associated with this surfel
+    uint ray_offset = surfel.ray_offset;
+    uint ray_count  = surfel.ray_count;
+
+    for (uint i = 0; i < ray_count; ++i) {
+        SurfelRayData ray = surfelRayBuffer.rays[ray_offset + i];
+
+        // Calculate weight based on some criteria, e.g., angle with normal
+        float weight = max(dot(ray.direction, surfel.normal), 0.0);
+        accumulated_irradiance += ray.radiance * weight;
+        total_weight += weight;
+    }
+
+    // Normalize the accumulated irradiance
+    if (total_weight > 0.0) {
+        accumulated_irradiance /= total_weight;
+    }
+
+    // Store the integrated irradiance
+    surfelIrradianceBuffer.irradiance[surfel_index] = accumulated_irradiance;
+
+    // Update moments and variance
+    vec2  result_depth       = vec2(0.0);
+    float total_depth_weight = 0.0;
+
+    for (uint i = 0; i < ray_count; ++i) {
+        SurfelRayData ray    = surfelRayBuffer.rays[ray_offset + i];
+        float         depth  = clamp(ray.depth, 0.0, surfel.GetRadius());
+        float         weight = pow(max(dot(ray.direction, surfel.normal), 0.0), 32);
+
+        if (weight > 0.0001) {
+            result_depth += vec2(depth, depth * depth) * weight;
+            total_depth_weight += weight;
+        }
+    }
+
+    if (total_depth_weight > 0.0001) {
+        result_depth /= total_depth_weight;
+    }
+
+    surfelMomentsTexture[surfel_index] = result_depth;
+
+    // Update variance data
+    SurfelVarianceData varianceData = surfelVarianceBuffer[surfel_index];
+    if (surfel_data.life == 0) {
+        varianceData.mean          = accumulated_irradiance;
+        varianceData.shortMean     = accumulated_irradiance;
+        varianceData.inconsistency = 1.0;
+    }
+    // MultiscaleMeanEstimator logic here
+    // ...
+
+    surfelVarianceBuffer[surfel_index] = varianceData;
+
+    // Update life and recycle logic
+    surfel_data.life++;
+    if (length(surfel.position - cameraPosition) > SURFEL_RECYCLE_DISTANCE) {
+        if (frustumIntersects(surfel.position, surfel.GetRadius())) {
+            surfel_data.recycle = 0;
+        } else {
+            surfel_data.recycle++;
+        }
+    } else {
+        surfel_data.recycle = 0;
+    }
+
+    surfel_data.life    = clamp(surfel_data.life, 0, 255);
+    surfel_data.recycle = clamp(surfel_data.recycle, 0, 255);
+
+    surfelDataBuffer[surfel_index] = surfel_data;
+}

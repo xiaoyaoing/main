@@ -24,9 +24,17 @@ struct SurfelStats {
     int surfelCount;
     int surfelNextcount;
     int surfelDeadcount;
-    int surfelCellallocator;
+    int surfelCellAllocator;
     int surfelRaycount;
     int surfelShortage;
+};
+
+struct SurfelRayData
+{
+    vec3 direction;
+    float depth;
+    vec3 radiance;
+    uint surfel_index;
 };
 
 struct SurfelUBO {
@@ -91,10 +99,14 @@ const float SURFEL_TARGET_COVERAGE = 0.8f;
 
 
 const uint SURFEL_MAX_RADIUS = 2;
- const uint SURFEL_INDIRECT_OFFSET_ITERATE = 0;
- const uint SURFEL_INDIRECT_OFFSET_RAYTRACE = SURFEL_INDIRECT_OFFSET_ITERATE + 4 * 3;
- const uint SURFEL_INDIRECT_OFFSET_INTEGRATE = SURFEL_INDIRECT_OFFSET_RAYTRACE + 4 * 3;
- const uint SURFEL_INDIRECT_SIZE = SURFEL_INDIRECT_OFFSET_INTEGRATE + 4 * 3;
+const uint SURFEL_INDIRECT_OFFSET_ITERATE = 0;
+const uint SURFEL_INDIRECT_OFFSET_RAYTRACE = SURFEL_INDIRECT_OFFSET_ITERATE + 4 * 3;
+const uint SURFEL_INDIRECT_OFFSET_INTEGRATE = SURFEL_INDIRECT_OFFSET_RAYTRACE + 4 * 3;
+const uint SURFEL_INDIRECT_SIZE = SURFEL_INDIRECT_OFFSET_INTEGRATE + 4 * 3;
 const uint SURFEL_INDIRECT_NUMTHREADS = 32;
+const uint SURFEL_RECYCLE_TIME = 60;
+const uint SURFEL_RAY_BOOST_MAX = 64; // max amount of rays per surfel
+const uint SURFEL_RAY_BUDGET = 500000; // max number of rays per frame
+
 #endif // SURFEL_H
 

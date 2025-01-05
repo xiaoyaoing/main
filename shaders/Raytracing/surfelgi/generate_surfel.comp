@@ -10,6 +10,7 @@
 #include "../../perFrame.glsl"
 #include "surfel.h"
 #include "surfel_common.glsl"
+#include "../../common/sampling.glsl"
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 // 输入资源
@@ -26,6 +27,9 @@ float random() {
 float saturate( float x) {
 	return clamp(x, 0.0, 1.0);
 }
+
+layout(push_constant) uniform _PushConstantRay { PCPath pc_ray; };
+
 
 // Surfel统计和管理
 layout(set = 0, binding = 1) buffer _SurfelStats {
@@ -75,6 +79,9 @@ void main() {
 
     ivec2 pixel = ivec2(gl_WorkGroupID.xy * 16 + gl_LocalInvocationID.xy);
 
+    if(pixel.x >= pc_ray.size_x || pixel.y >= pc_ray.size_y) {
+        return;
+    }
     // 获取可见性信息
     vec4 visibility = texelFetch(visibility_texture, pixel, 0);
 	if(visibility.x == -1) {
@@ -82,21 +89,27 @@ void main() {
 	}
     Surface surface = SurfaceFromVBuffer(visibility);
 
+    uvec4 seed = init_rng(pixel, pc_ray.frame_num);
+//    debugPrintfEXT("surface.position:%f,%f,%f\n",surface.position.x,surface.position.y,surface.position.z);
+//    return;
     // 计算世界空间位置和法线
 	vec2 screen_uv = (pixel + vec2(0.5)) * per_frame.inv_resolution;
     vec3 world_pos = surface.position;
     vec3 normal = surface.normal;
 
 	ivec3 cell_index = surfel_cell(world_pos);
+    
+//    debugPrintfEXT("cell_index:%d,%d,%d\n",cell_index.x,cell_index.y,cell_index.z);
+//    return;
     // 计算cell索引和coverage
     uint cell_linear_index = surfel_cellindex(cell_index);
     SurfelGridCell cell = surfel_grid[cell_linear_index];
 
-	return;
     float coverage = 0.0;
 
     // 计算当前像素的surfel覆盖
     for(uint i = 0; i < cell.count; i++) {
+        
         uint surfel_index = surfelCellBuffer[cell.offset + i];
         Surfel surfel = surfels[surfel_index];
 
@@ -119,14 +132,14 @@ void main() {
         }
     }
 
-	return;
+	//return;
     // 只在cell未满时尝试生成新的surfel
     //if(cell.count < surfel_ubo.max_surfel_per_cell)
 	{
         // 打包像素信息用于选择最小coverage的位置
         uint surfel_count_at_pixel = 0;
         surfel_count_at_pixel |= (uint(coverage * 255.0) & 0xFFu) << 24;  // coverage在高8位
-        surfel_count_at_pixel |= (uint(random() * 65535.0) & 0xFFFFu) << 8; // 随机值在中间
+        surfel_count_at_pixel |= (uint(rand1(seed) * 65535.0) & 0xFFFFu) << 8; // 随机值在中间
         surfel_count_at_pixel |= (gl_LocalInvocationID.x & 0xFu) << 4;
         surfel_count_at_pixel |= (gl_LocalInvocationID.y & 0xFu);
 
@@ -150,7 +163,9 @@ void main() {
 			float linearDepth = compute_linear_depth(world_pos);
             float chance = pow(1.0 - linearDepth, 8.0);
 
-            if(random() < chance) {
+           // debugPrintfEXT("chance:%f\n",chance);
+            
+            if(rand1(seed) < chance) {
                 // 从死亡列表获取新的surfel
                 int deadCount = atomicAdd(surfelStats.surfelDeadcount, -1);
                 if(deadCount <= 0 || deadCount > SURFEL_CAPACITY) {
@@ -159,8 +174,11 @@ void main() {
                 uint newSurfelIndex = deadIndices[deadCount - 1];
 
                 // 添加到活跃列表
-                uint aliveCount = atomicAdd(surfelStats.surfelCount, 1);
+                uint aliveCount = atomicAdd(surfelStats.surfelNextcount, 1);
+              //  debugPrintfEXT("newSurfelIndex:%d chance:%f deadCount:%d frame_num:%d\n",newSurfelIndex,chance,deadCount,pc_ray.frame_num);
                 if(aliveCount < SURFEL_CAPACITY) {
+                    
+                    
                     aliveIndices[aliveCount] = newSurfelIndex;
 
                     // 初始化新的surfel

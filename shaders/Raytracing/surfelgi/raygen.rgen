@@ -21,13 +21,8 @@ layout(push_constant) uniform _PushConstantRay { PCPath pc_ray; };
 
 // Buffers (set = 0)
 layout(set = 0, binding = 0) buffer SurfelStats {
-    uint surfelCount;
-    uint surfelNextcount;
-    uint surfelDeadcount;
-    uint surfelCellallocator;
-    uint surfelRaycount;
-    uint surfelShortage;
-} surfelStats;
+    SurfelStats surfelStats;
+};
 
 layout(set = 0, binding = 1) buffer SurfelBuffer {
     Surfel surfels[];

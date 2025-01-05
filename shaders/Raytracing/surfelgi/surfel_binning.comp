@@ -2,6 +2,7 @@
 #extension GL_GOOGLE_include_directive : enable
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_debug_printf : enable
 
 #include "surfel.h"
 #include "../../perFrame.glsl"
@@ -35,6 +36,7 @@ void main() {
     uint thread_id = gl_GlobalInvocationID.x;
     uint surfel_count = surfelStats.surfelCount;
 
+   // debugPrintfEXT("Surfel count: %d\n", surfel_count);
     if (thread_id >= surfel_count) {
         return;
     }
@@ -62,6 +64,8 @@ void main() {
                 // 将surfel添加到cell的索引列表中
                 uint offset = surfelGrid.cells[cell_index].offset + prev_count;
                 surfelCellBuffer.indices[offset] = surfel_index;
+                
+             //   debugPrintfEXT("Surfel %d added to cell %d total surfels in cell: %d total surfels: %d\n", surfel_index, cell_index, prev_count + 1, surfelStats.surfelCount);
             }
         }
     }

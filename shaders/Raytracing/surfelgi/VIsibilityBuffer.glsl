@@ -50,6 +50,10 @@ Surface SurfaceFromVBuffer(vec4 vbuffer){
 	int prim_id = int(vbuffer.x);
 	int triangle_index = int(vbuffer.y);
 	vec2 uv = vbuffer.zw;
+	
+//	debugPrintfEXT("prim_id:%d,triangle_index:%d,uv:%f,%f\n",prim_id,triangle_index,uv.x,uv.y);
+//	Surface temp;
+//	return temp;
 
 	Materials materials = Materials(scene_desc.material_addr);
 	Indices indices = Indices(scene_desc.index_addr);

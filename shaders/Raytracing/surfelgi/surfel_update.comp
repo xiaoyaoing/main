@@ -1,45 +1,49 @@
 #version 460
-#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_scalar_block_layout : enable
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_buffer_reference2 : require
+#extension GL_EXT_shader_atomic_float : require
 
 #include "surfel.h"
-#include "../common.glsl"
+#include "../../perFrame.glsl"
+#include "surfel_common.glsl"
 
-layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = SURFEL_INDIRECT_NUMTHREADS, local_size_y = 1, local_size_z = 1) in;
+
 
 // Buffers (set = 0)
-layout(set = 0, binding = 0) buffer SurfelStats {
-    uint surfelCount;
-    uint surfelNextcount;
-    uint surfelDeadcount;
-    uint surfelCellallocator;
-    uint surfelRaycount;
-    uint surfelShortage;
-} surfelStats;
+layout(set = 0, binding = 1) buffer _SurfelStats {
+    SurfelStats surfelStats;
+};
 
-layout(set = 0, binding = 1) buffer SurfelBuffer {
+layout(set = 0, binding = 2) buffer _SurfelBuffer {
     Surfel surfels[];
 } surfelBuffer;
 
-layout(set = 0, binding = 2) buffer SurfelGridBuffer {
+layout(set = 0, binding = 3) buffer _SurfelGridBuffer {
     SurfelGridCell cells[];
 } surfelGrid;
 
-layout(set = 0, binding = 3) buffer SurfelAliveBuffer_CURRENT {
+layout(set = 0, binding = 4) buffer _SurfelAliveBuffer_CURRENT {
     uint indices[];
 } surfelAlive_current;
 
-layout(set = 0, binding = 4) buffer SurfelAliveBuffer_NEXT {
+layout(set = 0, binding = 5) buffer _SurfelAliveBuffer_NEXT {
     uint indices[];
 } surfelAlive_next;
 
-layout(set = 0, binding = 5) buffer SurfelDeadBuffer {
+layout(set = 0, binding = 6) buffer _SurfelDeadBuffer {
     uint indices[];
 } surfelDead;
 
-layout(set = 0, binding = 6) buffer SurfelRayBuffer {
+layout(set = 0, binding = 7) buffer _SurfelRayBuffer {
     SurfelRayData rays[];
 } surfelRayBuffer;
+
+// ... rest of the shader code ...
 
 void main() {
     uint thread_id = gl_GlobalInvocationID.x;
@@ -57,7 +61,7 @@ void main() {
     // TODO: 根据您的需求添加位置和法线的更新逻辑
 
     // 计算surfel所在的grid cell
-    ivec3 center_cell = surfel_cell(surfel.local_position);
+    ivec3 center_cell = surfel_cell(surfel.position);
     
     // 更新grid cells中的surfel计数
     for (uint i = 0; i < 27; ++i) {
@@ -73,19 +77,17 @@ void main() {
     bool shortage = atomicOr(surfelStats.surfelShortage, 0) > 0;
     if (surfel.recycle_time > SURFEL_RECYCLE_TIME && shortage) {
         // 添加到死亡列表
-        uint dead_count;
-        atomicAdd(surfelStats.surfelDeadcount, 1, dead_count);
+        int dead_count = atomicAdd(surfelStats.surfelDeadcount, 1);
         surfelDead.indices[dead_count] = surfel_index;
         return;
     }
 
     // 保持surfel存活
-    uint alive_count;
-    atomicAdd(surfelStats.surfelNextcount, 1, alive_count);
+    uint alive_count = atomicAdd(surfelStats.surfelNextcount, 1);
     surfelAlive_next.indices[alive_count] = surfel_index;
 
     // 确定surfel的ray数量
-    uint ray_count_request = uint(saturate(surfel.max_inconsistency) * SURFEL_RAY_BOOST_MAX);
+    int ray_count_request = int(clamp(surfel.max_inconsistency,0,1) * SURFEL_RAY_BOOST_MAX);
     
     // 根据recycle时间调整ray数量
     if (surfel.recycle_time > 10) {
@@ -96,9 +98,9 @@ void main() {
     }
 
     // 分配ray
-    uint ray_offset = 0;
+    int ray_offset = 0;
     if (ray_count_request > 0) {
-        atomicAdd(surfelStats.surfelRaycount, ray_count_request, ray_offset);
+        ray_offset = atomicAdd(surfelStats.surfelRaycount, ray_count_request);
     }
 
     uint ray_count = (ray_offset < SURFEL_RAY_BUDGET) ? ray_count_request : 0;
@@ -108,6 +110,7 @@ void main() {
     // 更新ray数据
     surfel.ray_offset = ray_offset & 0xFFFFFF;
     surfel.ray_count = ray_count;
+    surfel.recycle = surfel.recycel+1;
 
     // 存储更新后的surfel
     surfelBuffer.surfels[surfel_index] = surfel;
