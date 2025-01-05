@@ -43,6 +43,8 @@ layout(set = 0, binding = 0) uniform _DDGIUboBuffer{ DDGIUbo ddgi_ubo; };
 
 #define CACHE_SIZE 32
 
+//#define USE_CACHE 1
+
 layout(local_size_x = NUM_THREADS_X, local_size_y = NUM_THREADS_Y,
 local_size_z = 1) in;
 shared DDGIRayData ray_radiance[CACHE_SIZE];
@@ -94,19 +96,12 @@ void main(){
     const ivec2 pixel_coord_local = ivec2(gl_LocalInvocationID.xy);
 
     const ivec2 pixel_current = pixel_coord_top_left + pixel_coord_local;
+    
+
+    
     if (!is_border_pixel)
     {
         vec3 texel_dir = oct_decode(normalized_oct_coord(pixel_coord_local- ivec2(1, 1), OUTPUT_SIDE));
-        if (texel_dir.y > 0){
-            //  texel_dir.x = -texel_dir.x;
-        }
-        // debugPrintfEXT("texel_dir: %f %f %f\n",texel_dir.x,texel_dir.y,texel_dir.z);
-
-        const ivec2 test_coord = pixel_coord_local - 1;
-        vec2 res = encode_to_oct(vec3(0, 0, 1));
-        res = res * 0.5  * float(OUTPUT_SIDE) + 0.5f * float(OUTPUT_SIDE);
-
-
 
         float total_weight = 0.0;
         vec3 result = vec3(0.0);
@@ -122,10 +117,16 @@ void main(){
             barrier();
 
 
+    
             for (uint i = 0; i < num_rays; i++){
-                uint index = i + probe_idx * ddgi_ubo.rays_per_probe + offset;
-                const vec3 dir = ddgi_ray_data_buffer.data[index].direction;
-                float dist = ddgi_ray_data_buffer.data[index].dist;
+                #ifdef USE_CACHE
+                uint index = i;
+                const vec3 dir = ray_radiance[index].direction;
+                float dist = ray_radiance[index].dist;
+                #else
+                const vec3 dir = ddgi_ray_data_buffer.data[probe_idx * ddgi_ubo.rays_per_probe + i + offset].direction;
+                float dist = ddgi_ray_data_buffer.data[probe_idx * ddgi_ubo.rays_per_probe + i + offset].dist;
+                #endif
                 float weight = clamp(dot(texel_dir, dir), 0.0, 1.0);
                 //                weight = 1.f;
 
@@ -138,15 +139,22 @@ void main(){
                     total_weight += weight;
 
                     #ifdef UPDATE_RADIANCE
-                    vec3 irradiance = ddgi_ray_data_buffer.data[index].irradiance;
+                    #ifdef USE_CACHE
+                    vec3 irradiance = ray_radiance[i].irradiance;
+                    #else
+                    vec3 irradiance = ddgi_ray_data_buffer.data[probe_idx * ddgi_ubo.rays_per_probe + i + offset].irradiance;
+                    #endif
+                    
                     result += irradiance * weight;
                     #else
                     dist = min(abs(dist), ddgi_ubo.max_distance);
                     result.rg  += vec2(dist, dist * dist) * weight;
-                   // debugPrintfEXT("pixel_current: %d %d\n",pixel_current.x,pixel_current.y);
                     #endif
                 }
             }
+  
+
+
 
             remaining_rays -= num_rays;
             offset += num_rays;
@@ -154,9 +162,13 @@ void main(){
             barrier();
         }
 
+        
         if (total_weight>0.0)
         result /= total_weight;
-        if (pc_ray.first_frame == 0 || pc_ray.frame_num > 0)
+
+    
+        
+        if (pc_ray.first_frame == 0 )
         {
             float hysteresis = pc_ray.ddgi_hysteresis;
             vec3 prev_result = imageLoad(output_image, ivec2(pixel_current)).rgb;
@@ -164,7 +176,6 @@ void main(){
             #ifdef UPDATE_RADIANCE
             const float c_threshold = 1.0 / 1024.0;
             vec3 delta = result.rgb - prev_result;
-            delta *= 0.25f;
             vec3 lerpDelta = (1.0 - hysteresis) * delta;
 
             if (max(max(result.r, result.g), result.b) < max(max(prev_result.r, prev_result.g), prev_result.b)) {
@@ -173,12 +184,12 @@ void main(){
                 lerpDelta.y = min(max(c_threshold, abs(lerpDelta.y)), abs(delta.y)) * sign(lerpDelta.y);
                 lerpDelta.z = min(max(c_threshold, abs(lerpDelta.z)), abs(delta.z)) * sign(lerpDelta.z);
             }
-              result = prev_result + lerpDelta;
-          //  result = mix(result, prev_result, hysteresis);
+         //   result = prev_result + lerpDelta;
 
+            result = mix(result, prev_result, hysteresis);
+            
             #else
             result = mix(result, prev_result, hysteresis);
-            //            result = mix(prev_result, result, w);
             #endif
         }
         imageStore(output_image, ivec2(pixel_current), vec4(result, 1.0));
