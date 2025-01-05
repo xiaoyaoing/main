@@ -17,7 +17,7 @@ int get_probe_index_by_coord(ivec3 probe_coord){
 
 ivec3 get_probe_coord_by_position(vec3 position){
     vec3 probe_grid_origin = ddgi_ubo.probe_start_position;
-    float probe_grid_size = ddgi_ubo.probe_distance;
+    vec3 probe_grid_size = ddgi_ubo.probe_distance;
     vec3 probe_grid = (position - probe_grid_origin) / probe_grid_size;
     return ivec3(probe_grid);
 }
@@ -27,7 +27,7 @@ vec3 get_surface_bias(vec3 normal,vec3 view,float normal_bias,float view_bias){
 }
 
 vec3 get_position_by_grid(ivec3 grid){
-    float  probe_grid_size = ddgi_ubo.probe_distance;
+    vec3  probe_grid_size = ddgi_ubo.probe_distance;
     vec3 probe_grid_origin =ddgi_ubo.probe_start_position;
     return probe_grid_origin + vec3(grid) * probe_grid_size;
 }

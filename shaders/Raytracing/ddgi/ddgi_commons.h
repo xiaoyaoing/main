@@ -6,8 +6,12 @@
 struct DDGIUbo {
     ivec3 probe_counts;
     float hysteresis;
+    
     vec3  probe_start_position;
+    float pad;
+    
     vec3  probe_distance;
+    float pad2;
 
     int   rays_per_probe;
     float max_distance;

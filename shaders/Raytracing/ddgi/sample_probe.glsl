@@ -4,7 +4,7 @@ vec3 get_probe_offset(uint probe_idx){
 }
 
 vec3 get_probe_position(ivec3 probe_coord){
-    float  probe_grid_size = ddgi_ubo.probe_distance;
+    vec3 probe_grid_size = ddgi_ubo.probe_distance;
     vec3 probe_grid_origin = ddgi_ubo.probe_start_position;
     return probe_grid_origin + vec3(probe_coord) * probe_grid_size + get_probe_offset(get_probe_index_by_coord(probe_coord));
 }
